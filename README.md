@@ -1,2 +1,2 @@
 # PathIntegralQM
-Numerical simulations of Quantum Mechanics problems using a path integral approach
+Numerical simulations of some quantum-mechanical systems using the (discrete) path integral formalism
