@@ -22,7 +22,7 @@ function SetLattice(SimBeta::Float64, N::Int64)
     Configuration(Lattice, SimBeta, N, Eta)
 end
 
-# ------------------------------- Path processing ------------------------------ 
+# ------------------------------- Path processing ------------------------------
 
 """
 Calculate oriented distance (diff) d(x,y), such that d(x,y) ∈ [-1/2,+1/2].
@@ -79,17 +79,17 @@ function MetropolisUpdate!(
 
     xTest = mod(x + Δ * (1 - 2 * rand()), 1)
 	xAvg = (xNext + xPrev)/2
-	
+
 	if (abs(CalculateDistance(xAvg, xTest)) <= abs(CalculateDistance(xAvg, x)))
 	 	Config.Lattice[Site] = xTest
         if verbose
         	printstyled("\nSite=$Site, x=$(round(x,digits=3)), xTest=$(round(xTest,digits=3))\n", color=:cyan)
             printstyled("ΔS<=0. Automatically accepted.\n", color=:cyan)
-            
+
         end
-        
+
         return 1	# Add to external counter
-        
+
 	elseif (abs(CalculateDistance(xAvg, xTest)) > abs(CalculateDistance(xAvg, x)))
 		ΔS = 0.5 * η^(-1) * (
 			CalculateDistance(xTest, xPrev)^2
@@ -108,13 +108,13 @@ function MetropolisUpdate!(
 			if verbose
 				printstyled("Accepted. Yay.\n", color=:green)
 			end
-			
+
 			return 1	# Add to external counter
 		else
 			if verbose
 			    printstyled("\nNot accepted. Rip.\n", color=:red)
 			end
-			
+
 			return 0	# Add to external counter
 		end
 	end
@@ -138,7 +138,7 @@ function HeatBathUpdate!(
     # then recenter the result
     Update = mod(Center + randn()/(2*sqrt(Alpha)), 1)
     Config.Lattice[Site] = Update
-    
+
     return
 end
 
@@ -206,7 +206,6 @@ if abspath(PROGRAM_FILE) == @__FILE__
 
 	PROJECT_ROOT = @__DIR__ # Absloute path up to .../PathIntegralQM/src
 
-	include(PROJECT_ROOT * "/../setup/graphic_setup.jl")
 	include(PROJECT_ROOT * "/plots.jl")
 
 	main()

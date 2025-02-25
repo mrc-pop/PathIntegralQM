@@ -1,3 +1,8 @@
+#!/usr/bin/julia
+
+PROJECT_ROOT = @__DIR__ # Absloute path up to .../PathIntegralQM/src
+include(PROJECT_ROOT * "/../setup/graphic_setup.jl")
+
 """
 Plot the path given by Config.Lattice, including "pacman effect".
 """
