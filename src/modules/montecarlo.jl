@@ -1,6 +1,6 @@
 #!/usr/bin/julia
 
-include("graphic_setup.jl")
+# ------------------------------- Initialization -------------------------------
 
 """
 Struct for a configuration with N time slicings, where SimBeta is the adimensional quantity
@@ -21,6 +21,8 @@ function SetLattice(SimBeta::Float64, N::Int64)
     Eta = SimBeta / N
     Configuration(Lattice, SimBeta, N, Eta)
 end
+
+# ------------------------------- Path processing ------------------------------ 
 
 """
 Calculate oriented distance (diff) d(x,y), such that d(x,y) ∈ [-1/2,+1/2].
@@ -59,13 +61,14 @@ function CalculateQ(Config::Configuration)
     return TotalDistance
 end
 
+# ---------------------------------- Updates -----------------------------------
+
 """
 Single-site metropolis update. Returns the updated counter AccSteps.
 """
 function MetropolisUpdate!(
     Config::Configuration,
-    Site::Int64,
-    AccSteps::Int64;
+    Site::Int64;
     Δ=0.5,
     verbose=false
 )
@@ -75,58 +78,72 @@ function MetropolisUpdate!(
     xPrev = Config.Lattice[Site-1]
 
     xTest = mod(x + Δ * (1 - 2 * rand()), 1)
-
-    ΔS = 0.5 * η^(-1) * (
-        CalculateDistance(xTest, xPrev)^2
-        + CalculateDistance(xNext, xTest)^2
-        - CalculateDistance(x, xPrev)^2
-        - CalculateDistance(xNext, x)^2
-        )
-
-    if verbose
-        println("Site=$Site, x=$(round(x,digits=3)), xTest=$(round(xTest,digits=3))")
-        println("ΔS=$(round(ΔS,digits=3)), exp(-ΔS)=$(round(exp(-ΔS),digits=3)).")
-    end
-
-    if ΔS <= 0
-        Config.Lattice[Site] = xTest
-        AccSteps += 1
+	xAvg = (xNext + xPrev)/2
+	
+	if (abs(CalculateDistance(xAvg, xTest)) <= abs(CalculateDistance(xAvg, x)))
+	 	Config.Lattice[Site] = xTest
         if verbose
-            println("  Accepted.")
+        	printstyled("\nSite=$Site, x=$(round(x,digits=3)), xTest=$(round(xTest,digits=3))\n", color=:cyan)
+            printstyled("ΔS<=0. Automatically accepted.\n", color=:cyan)
+            
         end
+        
+        return 1	# Add to external counter
+        
+	elseif (abs(CalculateDistance(xAvg, xTest)) > abs(CalculateDistance(xAvg, x)))
+		ΔS = 0.5 * η^(-1) * (
+			CalculateDistance(xTest, xPrev)^2
+			+ CalculateDistance(xNext, xTest)^2
+			- CalculateDistance(x, xPrev)^2
+			- CalculateDistance(xNext, x)^2
+			)
 
-    elseif rand() < exp(-ΔS)
-        Config.Lattice[Site] = xTest
-        AccSteps += 1
-    else
-        if verbose
-            println("  Not accepted.")
-        end
-    end
+		if verbose
+			printstyled("\nSite=$Site, x=$(round(x,digits=3)), xTest=$(round(xTest,digits=3))\n", color=:yellow)
+            printstyled("ΔS=$(round(ΔS,digits=3)), exp(-ΔS)=$(round(exp(-ΔS),digits=3))\n", color=:yellow)
+		end
 
-    return AccSteps
+		if rand() < exp(-ΔS)
+			Config.Lattice[Site] = xTest
+			if verbose
+				printstyled("Accepted. Yay.\n", color=:green)
+			end
+			
+			return 1	# Add to external counter
+		else
+			if verbose
+			    printstyled("\nNot accepted. Rip.\n", color=:red)
+			end
+			
+			return 0	# Add to external counter
+		end
+	end
 end
 
 """
 Heatbath update.
 """
-function HeatBathUpdate!(Config::Configuration, i::Int64)
+function HeatBathUpdate!(
+	Config::Configuration,
+	Site::Int64;
+	verbose=false
+)
     # Gaussian parameter linked to simulations parameters
     Alpha = 1/(Config.Eta * Config.SimBeta)
 
     # Interpolate lowest action postion
-    Center = (Config.Lattice[i-1] + Config.Lattice[i+1])/2
+    Center = (Config.Lattice[Site-1] + Config.Lattice[Site+1])/2
 
     # Extract update from gaussian pdf with null center e unitary variance,
     # then recenter the result
     Update = mod(Center + randn()/(2*sqrt(Alpha)), 1)
-    Config.Lattice[i] = Update
-
-    return Config
+    Config.Lattice[Site] = Update
+    
+    return
 end
 
 """
-Cluster "tailor" update [Bonati, D'Elia 2018], with tolerance ε.
+Cluster \"tailor\" update [Bonati, D'Elia 2018], with tolerance ε.
 """
 function TailorUpdate!(Config::Configuration, Site::Int64, ε::Float64)
     i = Site
@@ -154,79 +171,11 @@ function TailorUpdate!(Config::Configuration, Site::Int64, ε::Float64)
     return iEnd, xxNewPlot
 end
 
-"""
-Plot the path given by Config.Lattice, including "pacman effect".
-"""
-function PlotPath(Config; location="nw")
-
-    Q = round(Int, CalculateQ(Config))
-
-    p = plot(
-        xlims=(1,Config.N),
-        ylims=(0.0,1.0),
-        xlabel=L"i",
-        ylabel=L"x_i",
-        title=L"""
-            $\tilde \beta = %$(round(Config.SimBeta, digits=2)),
-            N = %$(Config.N), \eta = %$(round(Config.Eta, digits=2))$
-            """
-    )
-
-    PacmanUpIndices = findall(diff(Config.Lattice) .< -0.5)
-    PacmanDownIndices = findall(diff(Config.Lattice) .> 0.5)
-
-    for i in 1:length(Config.Lattice)-1
-        if i in PacmanUpIndices
-            plot!([i, i+1], [Config.Lattice[i], Config.Lattice[i+1]+1], color=MyColors[4], label=nothing)
-            plot!([i, i+1], [Config.Lattice[i]-1, Config.Lattice[i+1]], color=MyColors[4], label=nothing)
-        elseif i in PacmanDownIndices
-            plot!([i, i+1], [Config.Lattice[i], Config.Lattice[i+1]-1], color=MyColors[1], label=nothing)
-            plot!([i, i+1], [Config.Lattice[i]+1, Config.Lattice[i+1]], color=MyColors[1], label=nothing)
-        else
-            plot!([i, i+1], [Config.Lattice[i], Config.Lattice[i+1]], color="black", label=nothing)
-        end
-    end
-
-    if location=="nw"
-        annotate!((0.02,0.92), text(L"$Q=%$Q$", :left, 10))
-    elseif location=="ne"
-        annotate!((0.98,0.92), text(L"$Q=%$Q$", :right, 10))
-    end
-
-    return p
-end
-
-"""
-Plot the tailor update as a dashed line with highlighted endpoints. Write over current plot.
-xxNewPlot is the output of the TailorUpdate! function.
-"""
-function PlotTailorUpdate!(Config, i, iEnd, xxNewPlot)
-    hline!([Config.Lattice[i]], color="gray", alpha=0.3, label=nothing)
-
-    PacmanUpIndices = findall(diff(xxNewPlot) .< -0.5)
-    PacmanDownIndices = findall(diff(xxNewPlot) .> 0.5)
-
-    for j in i:iEnd # routine identical to PlotPath
-         index = j-i+1 # varies between 1:(iEnd-i+1)
-         if index in PacmanUpIndices
-             plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]+1], color="black", label=nothing, linestyle=:dash)
-             plot!([j, j+1], [xxNewPlot[index]-1, xxNewPlot[index+1]], color="black", label=nothing, linestyle=:dash)
-        elseif index in PacmanDownIndices
-            plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]-1], color="black", label=nothing, linestyle=:dash)
-            plot!([j, j+1], [xxNewPlot[index]+1, xxNewPlot[index+1]], color="black", label=nothing, linestyle=:dash)
-        else
-            plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]], color="black", linestyle=:dash, label=nothing)
-        end
-    end
-
-    scatter!([i, iEnd+1], [Config.Lattice[i], Config.Lattice[iEnd+1]], color="black",
-        markersize=2, label=nothing)
-end
-
+# ------------------------------------ Main ------------------------------------
 
 function main()
-    NMetro = 10000
-    N = 30
+    NMetro = 100000
+    N = 20
 
     Config = SetLattice(1.0, N)
     Counter = 0
@@ -234,22 +183,31 @@ function main()
     println("Performing $NMetro Metropolis steps...")
 
     for i in 1:NMetro
-        Site = i % (N-2) + 2 # from 2 to N-1 (sequential)
-        # Site = rand(2:N-1) # (random)
-        Counter = MetropolisUpdate!(Config, Site, Counter; Δ=0.05, verbose=false)
+        # Site = i % (N-2) + 2 # from 2 to N-1 (sequential)
+        Site = rand(2:N-1) # (random)
+        Counter += MetropolisUpdate!(Config, Site; Δ=0.5, verbose=true)
+        # HeatBathUpdate!(Config, Site)
     end
 
     println("Accepted steps: $Counter/$NMetro")
 
     p = PlotPath(Config; location="nw")
 
-    println("Performing tailor update...")
-    i = 2
-    ε = 0.1
-    iEnd, xxNewPlot = TailorUpdate!(Config, i, ε)
+    # println("Performing tailor update...")
+    # i = 2
+    # ε = 0.1
+    # iEnd, xxNewPlot = TailorUpdate!(Config, i, ε)
 
-    PlotTailorUpdate!(Config, i, iEnd, xxNewPlot)
+    # PlotTailorUpdate!(Config, i, iEnd, xxNewPlot)
 
 end
 
-main()
+if abspath(PROGRAM_FILE) == @__FILE__
+
+	PROJECT_ROOT = @__DIR__ # Absloute path up to .../PathIntegralQM/src
+
+	include(PROJECT_ROOT * "/../setup/graphic_setup.jl")
+	include(PROJECT_ROOT * "/plots.jl")
+
+	main()
+end
