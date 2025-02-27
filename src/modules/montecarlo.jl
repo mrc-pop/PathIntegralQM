@@ -74,8 +74,8 @@ function MetropolisUpdate!(
 )
     η = Config.Eta
     x = Config.Lattice[Site]
-    xNext = Config.Lattice[Site+1]
-    xPrev = Config.Lattice[Site-1]
+    xNext = Config.Lattice[mod1(Site+1,N)]
+    xPrev = Config.Lattice[mod1(Site-1,N)] # 1 ↦ N
 
     xTest = mod(x + Δ * (1 - 2 * rand()), 1)
 	xAvg = (xNext + xPrev)/2
@@ -85,12 +85,12 @@ function MetropolisUpdate!(
         if verbose
         	printstyled("\nSite=$Site, x=$(round(x,digits=3)), xTest=$(round(xTest,digits=3))\n", color=:cyan)
             printstyled("ΔS<=0. Automatically accepted.\n", color=:cyan)
-
         end
 
         return 1	# Add to external counter
 
 	elseif (abs(CalculateDistance(xAvg, xTest)) > abs(CalculateDistance(xAvg, x)))
+
 		ΔS = 0.5 * η^(-1) * (
 			CalculateDistance(xTest, xPrev)^2
 			+ CalculateDistance(xNext, xTest)^2
@@ -132,7 +132,7 @@ function HeatBathUpdate!(
     Alpha = 1/(Config.Eta * Config.SimBeta)
 
     # Interpolate lowest action postion
-    Center = (Config.Lattice[Site-1] + Config.Lattice[Site+1])/2
+    Center = (Config.Lattice[mod1(Site-1,N)] + Config.Lattice[mod1(Site+1,N)])/2
 
     # Extract update from gaussian pdf with null center e unitary variance,
     # then recenter the result
@@ -145,62 +145,135 @@ end
 """
 Cluster \"tailor\" update [Bonati, D'Elia 2018], with tolerance ε.
 """
-function TailorUpdate!(Config::Configuration, Site::Int64, ε::Float64)
+function TailorUpdate!(Config::Configuration, Site::Int64, ε::Float64; verbose=false)
+
     i = Site
     x = Config.Lattice[i]
-    iEnd = findfirst(y -> abs.(CalculateDistance(x + 0.5, y))<ε, Config.Lattice)
+
+    # Shift lattice, so to have Lattice[i+1] in first position
+    circshift!(Config.Lattice, -i)
+
+    # Find iEnd as prescribed by the tailor algorithm
+    DeltaiEnd = findfirst(y -> abs.(CalculateDistance(x + 0.5, y))<ε, Config.Lattice)
+
+    if DeltaiEnd === nothing
+        verbose && println("No iEnd found")
+        return [0, 0, nothing, nothing]
+    else
+        Found = 1
+    end
 
     # Propose path where y ↦ x_0 - (y - x_0) = 2 x_0 - y
     # (inversion about x_0) for y in {x_i+1, ..., x_iEnd}
-    xxTest = [mod(2 * x - Config.Lattice[j], 1) for j in (i+1):iEnd]
-
-    xxNewPlot = vcat(Config.Lattice[i], xxTest, Config.Lattice[iEnd+1])
+    xxTest = [mod(2 * x - Config.Lattice[j], 1) for j in 1:DeltaiEnd]
 
     # Calculate change in action after update
     ΔS = 0.5 * Config.Eta^(-1) * (
-        CalculateDistance(Config.Lattice[iEnd+1], xxTest[end])^2
-        -CalculateDistance(Config.Lattice[iEnd+1], Config.Lattice[iEnd])^2
+        CalculateDistance(Config.Lattice[mod1(DeltaiEnd+1,N)], xxTest[end])^2
+        -CalculateDistance(Config.Lattice[mod1(DeltaiEnd+1,N)], Config.Lattice[DeltaiEnd])^2
         )
 
-    if ΔS <= 0
-        Config.Lattice[(i+1):iEnd] = xxTest # accept the update
-    elseif rand() < exp(-ΔS)
-        Config.Lattice[(i+1):iEnd] = xxTest # accept the update
+    Acc = 0
+
+    if ΔS <= 0 || rand() < exp(-ΔS)
+        Config.Lattice[1:DeltaiEnd] = xxTest # accept the update
+        Acc = 1
+        verbose && println("Tailor accepted")
+    else
+        verbose && println("Tailor rejected")
     end
 
-    return iEnd, xxNewPlot
+    # Shift back lattice
+    circshift!(Config.Lattice, i)
+    iEnd = mod1(i + DeltaiEnd,N)
+
+    xxNewPlot = vcat(Config.Lattice[i], xxTest, Config.Lattice[mod1(iEnd+1,N)])
+
+    return Found, Acc, iEnd, xxNewPlot
 end
 
 # ------------------------------------ Main ------------------------------------
 
+const NSweepsTherm = 10000
+const NSweeps = Int(1e6)               # number of updates of the whole lattice
+const Δ = 0.3
+const sequential = false
+const NN = [100, 200, 300]                    # number of lattice points
+const SimBeta = 2.0
+const εε_over_ηη = [0.5, 1.0, 1.5, 2.0]      # tolerance of tailor method (article)
+
+using Statistics
+
 function main()
-    NMetro = 100000
-    N = 20
 
-    Config = SetLattice(1.0, N)
-    Counter = 0
+    for N in NN
+        printstyled("\nWorking on N=$N", color=:yellow)
+        η = SimBeta/N
 
-    println("Performing $NMetro Metropolis steps...")
+        for Fraction in εε_over_ηη
+            ε = Fraction * η
+            println("\nUsing ε=$ε, N=$N, η=$η, ε/η = $Fraction")
 
-    for i in 1:NMetro
-        # Site = i % (N-2) + 2 # from 2 to N-1 (sequential)
-        Site = rand(2:N-1) # (random)
-        Counter += MetropolisUpdate!(Config, Site; Δ=0.5, verbose=true)
-        # HeatBathUpdate!(Config, Site)
+            Config = SetLattice(1.0, N)
+            FoundTailor = 0
+            AccTailor = 0
+
+            for _ in 1:(NSweepsTherm*N)
+                Site = rand(2:N-1)
+                MetropolisUpdate!(Config, Site; Δ)
+            end
+
+            LL = fill(0, NSweeps)
+
+            for i in 1:NSweeps
+                # Sweep over lattice
+                for j in 1:N
+                    Site = rand(2:N-1)
+                    MetropolisUpdate!(Config, Site; Δ)
+                end
+
+                Site = rand(2:Int(N/2))
+                Found, Acc, iEnd, _ = TailorUpdate!(Config, Site, ε; verbose=false)
+                if iEnd !== nothing
+                    LL[i] = iEnd - Site
+                end
+
+                FoundTailor += Found
+                AccTailor += Acc
+            end
+
+            # exclude zeros
+            LL = LL[LL .!= 0]
+
+            MeanL = mean(LL)
+            StdL = std(LL)
+
+            println("Over $NSweeps tailor updates, I found iEnd $FoundTailor times (ratio $(round(FoundTailor/NSweeps,digits=4)))")
+            println("and accepted the tailor metropolis step $AccTailor times (acceptance $(round(AccTailor/FoundTailor, digits=4)))")
+            println("Length of the cluster: L=$(round(MeanL, digits=2)) ± $(round(StdL,digits=2))")
+        end
     end
-
-    println("Accepted steps: $Counter/$NMetro")
-
-    p = PlotPath(Config; location="nw")
-
-    # println("Performing tailor update...")
-    # i = 2
-    # ε = 0.1
-    # iEnd, xxNewPlot = TailorUpdate!(Config, i, ε)
-
-    # PlotTailorUpdate!(Config, i, iEnd, xxNewPlot)
-
 end
+
+    # println("Performing $NMetro Metropolis steps...")
+
+    # for i in 1:NMetro
+    #     # Site = i % (N-2) + 2 # from 2 to N-1 (sequential)
+    #     Site = rand(2:N-1) # (random)
+    #     Counter += MetropolisUpdate!(Config, Site; Δ=0.5, verbose=true)
+    #     # HeatBathUpdate!(Config, Site)
+    # end
+
+    # println("Accepted steps: $Counter/$NMetro")
+
+    # p = PlotPath(Config; location="nw")
+
+    # # println("Performing tailor update...")
+    # # i = 2
+    # # ε = 0.1
+    # # iEnd, xxNewPlot = TailorUpdate!(Config, i, ε)
+
+    # # PlotTailorUpdate!(Config, i, iEnd, xxNewPlot)
 
 if abspath(PROGRAM_FILE) == @__FILE__
 

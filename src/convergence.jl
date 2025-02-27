@@ -16,7 +16,7 @@ configurations:
 """
 
 function main()
-	
+
 	NSteps = 100000						# Number of single-site update steps
     N = 20								# Number of time steps
 	SimBeta = 1.0						# Adimensional beta (Beta/kB*T)
@@ -27,17 +27,17 @@ function main()
 	IgnoreCounter = IgnoredSteps
 
 	Schemes = ["Metropolis", "Heatbath"]
-	
+
 	Metropolis = false 					# TODO Change
-	AccSteps = 0    
+	AccSteps = 0
 
 	for (j,Scheme) in enumerate(Schemes)
 		println("Performing $NSteps $Scheme steps...")
 
 		for i in 1:NSteps
-		    Site = i % (N-2) + 2 # from 2 to N-1 (sequential)
+		    Site = i % (N-2) + 1 # from 2 to N-1 (sequential)
 		    # Site = rand(2:N-1) # (random)
-		    
+
 		    if Scheme=="Metropolis"
 		    	AccSteps += MetropolisUpdate!(Config, Site; Δ=0.05, verbose=false)
 	 		elseif Scheme=="Heatbath"
@@ -45,9 +45,9 @@ function main()
 	 		else
 	 			println("Invalid algorithm. Exiting.")
 	 			exit()
-	 		end		
-	 		       
-		    if IgnoreCounter==0 
+	 		end
+
+		    if IgnoreCounter==0
 		   		IgnoreCounter = IgnoredSteps
 		   		WindingNumbers[ceil(Int64, i/IgnoredSteps), j] = round(Int64, CalculateQ(Config))
 		   	elseif IgnoreCounter>0
@@ -62,11 +62,11 @@ function main()
 		end
 
 	end
-	
+
 	Waiting=true
 	print("Plot results? (y/n) ")
 	UserPlot = readline()
-	
+
 	while Waiting
 		if UserPlot=="y"
 			Waiting=false
@@ -83,7 +83,7 @@ function main()
 				label=["Metropolis" "Heatbath"]
 			)
 			savefig(QHistogram, PROJECT_ROOT * "/../convergence/QHistogram_SimBeta=$(SimBeta)_N=$N.pdf")
-			
+
 		elseif UserPlot=="n"
 			Waiting=false
 			println("Aborting.")

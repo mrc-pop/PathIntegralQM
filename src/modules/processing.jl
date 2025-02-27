@@ -7,7 +7,7 @@ using Statistics
 Reshape Data by dividing them in blocks of length BlockLength, then compute the mean
 value of each block and create a new matrix storing these mean values.
 """
-function BlockData(Data::Matrix{Float64}, BlockLength::Int64)
+function BlockData(Data::Array{Float64}, BlockLength::Int64)
     # Number of blocks
     BlockNumber = Int(floor(size(Data, 1) / BlockLength))
 
@@ -62,31 +62,31 @@ function Jackknife()
     # TODO
 end
 
-function main()
-    # SETTINGS
-    FilePath=PROJECT_ROOT*"/../../simulations/data_Q_mock.txt"
-    k = 10000 # block length
-    R = 100 # resamples
-    # end settings
+# function main()
+#     # SETTINGS
+#     FilePath=PROJECT_ROOT*"/../../simulations/data_Q_mock.txt"
+#     k = 10000 # block length
+#     R = 100 # resamples
+#     # end settings
 
-    Data = readdlm(FilePath, ',', '\n'; comments=true)
+#     Data = readdlm(FilePath, ',', '\n'; comments=true)
 
-    println("Reading n=$(length(Data)) values of Q. Using blocks of length $k.")
+#     println("Reading n=$(length(Data)) values of Q. Using blocks of length $k.")
 
-    QQ = Data
-    QQ2 = QQ.^2
+#     QQ = Data
+#     QQ2 = QQ.^2
 
-    println("⟨Q⟩ = ", mean(QQ))
-    println("⟨Q²⟩ = ", mean(QQ2))
+#     println("⟨Q⟩ = ", mean(QQ))
+#     println("⟨Q²⟩ = ", mean(QQ2))
 
-    BlockedQQ = BlockData(QQ, k)
-    BlockedQQ2 = BlockData(QQ2, k)
+#     BlockedQQ = BlockData(QQ, k)
+#     BlockedQQ2 = BlockData(QQ2, k)
 
-    SigmaQ = std(BlockedQQ, corrected=true) / sqrt(length(BlockedQQ))
-    SigmaQ2 = std(BlockedQQ2, corrected=true) / sqrt(length(BlockedQQ2))
+#     SigmaQ = std(BlockedQQ, corrected=true) / sqrt(length(BlockedQQ))
+#     SigmaQ2 = std(BlockedQQ2, corrected=true) / sqrt(length(BlockedQQ2))
 
-    println("δQ = ", SigmaQ)
-    println("δQ² = ", SigmaQ2)
-end
+#     println("δQ = ", SigmaQ)
+#     println("δQ² = ", SigmaQ2)
+# end
 
-main()
+# main()
