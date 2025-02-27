@@ -1,6 +1,7 @@
 #!/usr/bin/julia
 
 PROJECT_ROOT = @__DIR__
+include(PROJECT_ROOT * "/setup/graphic_setup.jl")
 include(PROJECT_ROOT * "/modules/montecarlo.jl")
 include(PROJECT_ROOT * "/modules/processing.jl")
 include(PROJECT_ROOT * "/modules/plots.jl")

@@ -74,6 +74,7 @@ function MetropolisUpdate!(
 )
     η = Config.Eta
     x = Config.Lattice[Site]
+    N = Config.N
     xNext = Config.Lattice[mod1(Site+1,N)]
     xPrev = Config.Lattice[mod1(Site-1,N)] # 1 ↦ N
 
@@ -128,6 +129,9 @@ function HeatBathUpdate!(
 	Site::Int64;
 	verbose=false
 )
+
+	N = Config.N	
+	
     # Gaussian parameter linked to simulations parameters
     Alpha = 1/(Config.Eta * Config.SimBeta)
 
