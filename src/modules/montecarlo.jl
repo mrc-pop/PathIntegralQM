@@ -51,14 +51,19 @@ end
 """
 Calculate winding number Q of the configuration.
 """
-function CalculateQ(Config::Configuration)
+function CalculateQ(Config::Configuration; WarningQty=0.001)
     # Calculate diffs d(x_i, x_{i+1}) for all i
-    Diffs = [CalculateDistance(Config.Lattice[R+1], Config.Lattice[R])
-             for R in 1:(Config.N-1)]
+    Diffs = [CalculateDistance(Config.Lattice[mod1(R+1,N)], Config.Lattice[R])
+             for R in 1:Config.N]
     # Sum the diffs
     TotalDistance = sum(Diffs)
-    #return round(Int, TotalDistance)
-    return TotalDistance
+
+    if abs(TotalDistance - round(TotalDistance)) > WariningQty
+        println("Warning! Q is more than $WarningQty away from an integer")
+        return TotalDistance
+    end
+
+    return round(Int64, TotalDistance)
 end
 
 # ---------------------------------- Updates -----------------------------------
@@ -84,7 +89,10 @@ function MetropolisUpdate!(
 	if (abs(CalculateDistance(xAvg, xTest)) <= abs(CalculateDistance(xAvg, x)))
 	 	Config.Lattice[Site] = xTest
         if verbose
-        	printstyled("\nSite=$Site, x=$(round(x,digits=3)), xTest=$(round(xTest,digits=3))\n", color=:cyan)
+        	printstyled(
+                "\nSite=$Site, x=$(round(x,digits=3)), xTest=$(round(xTest,digits=3))\n",
+                color=:cyan
+            )
             printstyled("ΔS<=0. Automatically accepted.\n", color=:cyan)
         end
 
@@ -100,8 +108,10 @@ function MetropolisUpdate!(
 			)
 
 		if verbose
-			printstyled("\nSite=$Site, x=$(round(x,digits=3)), xTest=$(round(xTest,digits=3))\n", color=:yellow)
-            printstyled("ΔS=$(round(ΔS,digits=3)), exp(-ΔS)=$(round(exp(-ΔS),digits=3))\n", color=:yellow)
+			printstyled("\nSite=$Site, x=$(round(x,digits=3)), xTest=$(round(xTest,digits=3))\n",
+                color=:yellow)
+            printstyled("ΔS=$(round(ΔS,digits=3)), exp(-ΔS)=$(round(exp(-ΔS),digits=3))\n",
+                color=:yellow)
 		end
 
 		if rand() < exp(-ΔS)
@@ -130,8 +140,8 @@ function HeatBathUpdate!(
 	verbose=false
 )
 
-	N = Config.N	
-	
+	N = Config.N
+
     # Gaussian parameter linked to simulations parameters
     Alpha = 1/(Config.Eta * Config.SimBeta)
 
@@ -147,12 +157,14 @@ function HeatBathUpdate!(
 end
 
 """
-Cluster \"tailor\" update [Bonati, D'Elia 2018], with tolerance ε.
+Cluster «tailor» update [Bonati, D'Elia 2018], with tolerance ε.
 """
 function TailorUpdate!(Config::Configuration, Site::Int64, ε::Float64; verbose=false)
 
+    # Simplify notation
     i = Site
     x = Config.Lattice[i]
+    N = Config.N
 
     # Shift lattice, so to have Lattice[i+1] in first position
     circshift!(Config.Lattice, -i)
@@ -194,96 +206,4 @@ function TailorUpdate!(Config::Configuration, Site::Int64, ε::Float64; verbose=
     xxNewPlot = vcat(Config.Lattice[i], xxTest, Config.Lattice[mod1(iEnd+1,N)])
 
     return Found, Acc, iEnd, xxNewPlot
-end
-
-# ------------------------------------ Main ------------------------------------
-
-const NSweepsTherm = 10000
-const NSweeps = Int(1e6)               # number of updates of the whole lattice
-const Δ = 0.3
-const sequential = false
-const NN = [100, 200, 300]                    # number of lattice points
-const SimBeta = 2.0
-const εε_over_ηη = [0.5, 1.0, 1.5, 2.0]      # tolerance of tailor method (article)
-
-using Statistics
-
-function main()
-
-    for N in NN
-        printstyled("\nWorking on N=$N", color=:yellow)
-        η = SimBeta/N
-
-        for Fraction in εε_over_ηη
-            ε = Fraction * η
-            println("\nUsing ε=$ε, N=$N, η=$η, ε/η = $Fraction")
-
-            Config = SetLattice(1.0, N)
-            FoundTailor = 0
-            AccTailor = 0
-
-            for _ in 1:(NSweepsTherm*N)
-                Site = rand(2:N-1)
-                MetropolisUpdate!(Config, Site; Δ)
-            end
-
-            LL = fill(0, NSweeps)
-
-            for i in 1:NSweeps
-                # Sweep over lattice
-                for j in 1:N
-                    Site = rand(2:N-1)
-                    MetropolisUpdate!(Config, Site; Δ)
-                end
-
-                Site = rand(2:Int(N/2))
-                Found, Acc, iEnd, _ = TailorUpdate!(Config, Site, ε; verbose=false)
-                if iEnd !== nothing
-                    LL[i] = iEnd - Site
-                end
-
-                FoundTailor += Found
-                AccTailor += Acc
-            end
-
-            # exclude zeros
-            LL = LL[LL .!= 0]
-
-            MeanL = mean(LL)
-            StdL = std(LL)
-
-            println("Over $NSweeps tailor updates, I found iEnd $FoundTailor times (ratio $(round(FoundTailor/NSweeps,digits=4)))")
-            println("and accepted the tailor metropolis step $AccTailor times (acceptance $(round(AccTailor/FoundTailor, digits=4)))")
-            println("Length of the cluster: L=$(round(MeanL, digits=2)) ± $(round(StdL,digits=2))")
-        end
-    end
-end
-
-    # println("Performing $NMetro Metropolis steps...")
-
-    # for i in 1:NMetro
-    #     # Site = i % (N-2) + 2 # from 2 to N-1 (sequential)
-    #     Site = rand(2:N-1) # (random)
-    #     Counter += MetropolisUpdate!(Config, Site; Δ=0.5, verbose=true)
-    #     # HeatBathUpdate!(Config, Site)
-    # end
-
-    # println("Accepted steps: $Counter/$NMetro")
-
-    # p = PlotPath(Config; location="nw")
-
-    # # println("Performing tailor update...")
-    # # i = 2
-    # # ε = 0.1
-    # # iEnd, xxNewPlot = TailorUpdate!(Config, i, ε)
-
-    # # PlotTailorUpdate!(Config, i, iEnd, xxNewPlot)
-
-if abspath(PROGRAM_FILE) == @__FILE__
-
-	PROJECT_ROOT = @__DIR__ # Absloute path up to .../PathIntegralQM/src
-
-	include(PROJECT_ROOT * "/plots.jl")
-
-	main()
 end

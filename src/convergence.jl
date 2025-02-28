@@ -24,7 +24,8 @@ function RunConvergenceSimulations(
 	N::Int64,
 	NSteps::Int64,
 	SimBetas::Vector{Float64},
-	IgnoredSteps::Int64
+	IgnoredSteps::Int64;
+	RandomSite=false
 )
 	
 	QScheme = zeros(Int64, floor(Int64, NSteps/(IgnoredSteps+1)), length(SimBetas))
@@ -37,8 +38,12 @@ function RunConvergenceSimulations(
 		
 		IgnoreCounter = IgnoredSteps+1	# Initialize ignore counter
 		for j in 0:(NSteps-1)
-			Site = j % (N-3) + 2 	# from 2 to N-1 (sequential)
-			# Site = rand(2:N-1) 	# (random)
+		
+			if !RandomSite
+				Site = j % (N-3) + 2 	# from 2 to N-1 (sequential)
+			elseif RandomSite
+				Site = rand(2:N-1) 	# (random)
+			end
 			
 			# TODO Vary UserDelta
 			
@@ -121,9 +126,11 @@ function PlotHistograms(
 end
 
 function main()
+
+	RS = true								# Random site selection
 	
-	NSteps = Int64(1E6)						# Number of single-site update steps
-    N = 20									# Number of time steps
+	NSteps = Int64(1E8)						# Number of single-site update steps
+    N = 100									# Number of time steps
 	SimBetas = [0.1, 0.5, 1.0, 2.0, 4.0]	# Adimensional betas (Beta/kB*T)
 	Etas = SimBetas./N
 
@@ -141,7 +148,11 @@ function main()
 	Schemes = ["Metropolis", "Heatbath"] 	# Algorithms
 	UserDelta = 0.05
 
-	DirPathOut = PROJECT_ROOT * "/../convergence/data/N=$(N)/"
+	if RS
+		DirPathOut = PROJECT_ROOT * "/../convergence/data/random/N=$(N)/"
+	elseif !RS
+		DirPathOut = PROJECT_ROOT * "/../convergence/data/sequential/N=$(N)/"
+	end
 	mkpath(DirPathOut)
 
 	for (s,Scheme) in enumerate(Schemes)
@@ -152,7 +163,7 @@ function main()
 		write(DataFile, Header * "[calculated $(now())]\n")
 		close(DataFile)
 		
-		QScheme = RunConvergenceSimulations(Scheme, UserDelta, N, NSteps, SimBetas, IgnoredSteps)
+		QScheme = RunConvergenceSimulations(Scheme, UserDelta, N, NSteps, SimBetas, IgnoredSteps; RandomSite=RS)
 		
 		# Write on file
 		DataFile = open(FilePathOut, "a")

@@ -17,6 +17,9 @@ const k = Int(1e4)               # block length
 
 function main()
 
+    # TODO set simulations routine according to the best tradeoff,
+    # determined using the other scripts
+
     println("\nAlgorithm settings: Δ=$Δ, sequential=$sequential, ε=$ε.")
 
     # Initialize lattice and counter
