@@ -7,7 +7,7 @@ include(PROJECT_ROOT * "/../src/modules/plots.jl")
 
 const N = 50
 const SimBeta = 2.0
-const Δ = 0.5
+const Δ = 0.2
 
 function main()
 
@@ -18,17 +18,21 @@ function main()
 
     Config = SetLattice(SimBeta, N)
 
-    for i in 1:(100*N)
+    for i in 1:(10*N)
         Site = mod1(i,N)
         MetropolisUpdate!(Config, Site; Δ)
     end
 
     println("Before tailor, Q=$(CalculateQ(Config))")
 
-    PlotPath(Config)
+    p = PlotPath(Config)
 
-    Site = N-1
-    Found, Acc, iEnd, xxNewPlot = TailorUpdate!(Config, Site, 0.2*SimBeta/N)
+    savefig(PROJECT_ROOT * "/qualitative_plots/path_N=$N.pdf")
+
+    plot(p)
+
+    Site = 10
+    Found, Acc, iEnd, xxNewPlot = TailorUpdate!(Config, Site, 0.02)
 
     println("iEnd=$iEnd. Found? $(Bool(Found)). Accepted? $(Bool(Acc))")
 
@@ -36,9 +40,12 @@ function main()
 
     println("After tailor, Q=$(CalculateQ(Config))")
 
-    gui()
+    if Bool(Found) == 1
+        savefig(PROJECT_ROOT * "/qualitative_plots/path_N=$(N)_tailor.pdf")
+        PlotPath(Config)
+        savefig(PROJECT_ROOT * "/qualitative_plots/path_N=$(N)_after.pdf")
+    end
 
-    plot!()
 end
 
 main()

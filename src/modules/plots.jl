@@ -75,17 +75,17 @@ function PlotTailorUpdate!(
         for j in i:iEnd
             index = j-i+1 # varies between 1:(DeltaiEnd+1)
             if index in PacmanUpIndices
-                plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]+1], color="black",
+                plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]+1], color="gray",
                     label=nothing, linestyle=:dash)
-                plot!([j, j+1], [xxNewPlot[index]-1, xxNewPlot[index+1]], color="black",
+                plot!([j, j+1], [xxNewPlot[index]-1, xxNewPlot[index+1]], color="gray",
                     label=nothing, linestyle=:dash)
             elseif index in PacmanDownIndices
-                plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]-1], color="black",
+                plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]-1], color="gray",
                     label=nothing, linestyle=:dash)
-                plot!([j, j+1], [xxNewPlot[index]+1, xxNewPlot[index+1]], color="black",
+                plot!([j, j+1], [xxNewPlot[index]+1, xxNewPlot[index+1]], color="gray",
                     label=nothing, linestyle=:dash)
             else
-                plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]], color="black",
+                plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]], color="gray",
                     label=nothing, linestyle=:dash)
             end
         end
@@ -96,17 +96,17 @@ function PlotTailorUpdate!(
         # in the site contained in ClusterPoints[i]
         for (index,j) in enumerate(ClusterPoints)
             if index in PacmanUpIndices
-                plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]+1], color="black",
+                plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]+1], color="gray",
                     label=nothing, linestyle=:dash)
-                plot!([j, j+1], [xxNewPlot[index]-1, xxNewPlot[index+1]], color="black",
+                plot!([j, j+1], [xxNewPlot[index]-1, xxNewPlot[index+1]], color="gray",
                     label=nothing, linestyle=:dash)
             elseif index in PacmanDownIndices
-                plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]-1], color="black",
+                plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]-1], color="gray",
                     label=nothing, linestyle=:dash)
-                plot!([j, j+1], [xxNewPlot[index]+1, xxNewPlot[index+1]], color="black",
+                plot!([j, j+1], [xxNewPlot[index]+1, xxNewPlot[index+1]], color="gray",
                     label=nothing, linestyle=:dash)
             else
-                plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]], color="black",
+                plot!([j, j+1], [xxNewPlot[index], xxNewPlot[index+1]], color="gray",
                     linestyle=:dash, label=nothing)
             end
         end

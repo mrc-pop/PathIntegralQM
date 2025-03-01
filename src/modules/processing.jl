@@ -1,15 +1,18 @@
 #!/usr/bin/julia
 
+using Statistics
+
 """
 Reshape Data by dividing them in blocks of length BlockLength, then compute the mean
-value of each block and create a new matrix storing these mean values.
+value of each block and create a new matrix storing these mean values. The function
+accepts both float and int values.
 """
-function BlockData(Data::Array{Float64}, BlockLength::Int64)
-    # Number of blocks
-    BlockNumber = Int(floor(size(Data, 1) / BlockLength))
+function BlockData(Data::AbstractArray{<:Number}, BlockLength::Int64)
+    # Number of blocks (using integer division ÷)
+    BlockNumber = size(Data, 1) ÷ BlockLength
 
     # Initialize array of blocked data
-    BlockedData = zeros(BlockNumber, size(Data, 2))
+    BlockedData = zeros(Float64, BlockNumber, size(Data, 2))
 
     for i in 1:BlockNumber
         iStart = (i - 1) * BlockLength + 1
@@ -18,6 +21,23 @@ function BlockData(Data::Array{Float64}, BlockLength::Int64)
     end
 
     return BlockedData
+end
+
+"""
+Specific instance of BlockData to block Q and output Q, SigmaQ, Q², SigmaQ²
+"""
+function BlockQ(QQ::Array{Int64}, k::Int64)
+
+    Q = mean(QQ)
+    Q2 = mean(QQ.^2)
+
+    BlockedQQ = BlockData(QQ, k)
+    SigmaQ = std(BlockedQQ, corrected=true) / sqrt(length(BlockedQQ))
+
+    BlockedQQ2 = BlockData(QQ.^2, k)
+    SigmaQ2 = std(BlockedQQ2, corrected=true) / sqrt(length(BlockedQQ2))
+
+    return Q, SigmaQ, Q2, SigmaQ2
 end
 
 """

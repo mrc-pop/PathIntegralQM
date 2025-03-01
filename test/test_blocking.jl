@@ -1,35 +1,52 @@
 #!/usr/bin/julia
 
 using DelimitedFiles
-using Statistics
 
 PROJECT_ROOT = @__DIR__
+include(PROJECT_ROOT * "/../src/modules/montecarlo.jl")
+include(PROJECT_ROOT * "/../src/setup/graphic_setup.jl")
+include(PROJECT_ROOT * "/../src/modules/plots.jl")
 include(PROJECT_ROOT * "/../src/modules/processing.jl")
 
-const FilePath = PROJECT_ROOT*"/../simulations/data_Q_mock.txt"
-const k = 10000  # block length
-const R = 100    # resamples
+"""
+Code to find the optimal block length.
+"""
+
+# Import variables from setup file
+include(PROJECT_ROOT * "/../src/setup/simulations_setup.jl")
+
+# Define custom block sizes variable
+const BlockSizes = [1,5,10,15,20,40,60,80,100,200,300,400]
 
 function main()
 
-    Data = readdlm(FilePath, ',', '\n'; comments=true)
+    for SimBeta in SimBetas
 
-    println("Reading n=$(length(Data)) values of Q. Using blocks of length $k.")
+        @time for N in NN
 
-    QQ = Data
-    QQ2 = QQ.^2
+            QQ2 = QQ.^2
+            MeanQ2 = mean(QQ2)
 
-    println("⟨Q⟩ = ", mean(QQ))
-    println("⟨Q²⟩ = ", mean(QQ2))
+            @info "Blocking for different block sizes" N SimBeta MeanQ2
 
-    BlockedQQ = BlockData(QQ, k)
-    BlockedQQ2 = BlockData(QQ2, k)
+            FilePathIn = PROJECT_ROOT * "/../simulations/N=$N/SimBeta=$SimBeta.txt"
+            QQ = readdlm(FilePathIn, '\n', Int64; comments=true)
 
-    SigmaQ = std(BlockedQQ, corrected=true) / sqrt(length(BlockedQQ))
-    SigmaQ2 = std(BlockedQQ2, corrected=true) / sqrt(length(BlockedQQ2))
+            ErrorsQ = fill(0.0, length(BlockSizes))
+            ErrorsQ2 = fill(0.0, length(BlockSizes))
 
-    println("δQ = ", SigmaQ)
-    println("δQ² = ", SigmaQ2)
+            for (i,k) in enumerate(BlockSizes)
+                @info "Blocking Q and Q² with k=$k, number of blocks: $(round(Int64, length(QQ)/k))"
+                _, ErrorsQ[i], _, ErrorsQ2[i] = BlockQ(QQ, k)
+            end
+
+            plot!(BlockSizes, ErrorsQ2, xlabel=L"$k$", ylabel=L"$\sigma_{Q^2}$",
+                title=L"$\tilde \beta = %$(round(SimBeta, digits=2)),
+                    N_\mathrm{sweeps} = 10^8$", label=L"$N=%$N$")
+        end
+
+        savefig(PROJECT_ROOT*"/qualitative_plots/blocking_NN=$(NN)_SimBeta=$SimBeta.pdf")
+    end
 end
 
-main()
+@time main()

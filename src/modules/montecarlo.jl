@@ -53,13 +53,13 @@ Calculate winding number Q of the configuration.
 """
 function CalculateQ(Config::Configuration; WarningQty=0.001)
     # Calculate diffs d(x_i, x_{i+1}) for all i
-    Diffs = [CalculateDistance(Config.Lattice[mod1(R+1,N)], Config.Lattice[R])
+    Diffs = [CalculateDistance(Config.Lattice[mod1(R+1,Config.N)], Config.Lattice[R])
              for R in 1:Config.N]
     # Sum the diffs
     TotalDistance = sum(Diffs)
 
-    if abs(TotalDistance - round(TotalDistance)) > WariningQty
-        println("Warning! Q is more than $WarningQty away from an integer")
+    if abs(TotalDistance - round(TotalDistance)) > WarningQty
+        @warn "Q is more than $WarningQty away from an integer"
         return TotalDistance
     end
 
