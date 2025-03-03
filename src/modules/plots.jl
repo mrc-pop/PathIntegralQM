@@ -1,7 +1,7 @@
 #!/usr/bin/julia
 
 """
-Plot the path given by Config.Lattice, including "pacman effect".
+Plot the path given by Config.Lattice, including \"pacman effect\".
 """
 function PlotPath(Config::Configuration; location="nw")
 
@@ -169,3 +169,44 @@ function PlotTailorUpdate!(
     println("No Tailor plot produced, since iEnd is nothing.")
     return
 end
+
+function PlotHistograms(
+	DirPathIn::String,
+	Scheme::String,
+	UserDelta::Float64,
+	N::Int64,
+	NSteps::Int64,
+	SimBetas::Vector{Float64},
+	IgnoredSteps::Int64
+)
+
+	FilePathIn = DirPathIn * "/$(Scheme)_NSteps=$(NSteps).txt"
+	QData = readdlm(FilePathIn, ';', comments=true)
+	
+	# Mastruzzo here
+	PlotDict = Vector{Dict}()
+	
+	for (j,SimBeta) in enumerate(SimBetas)
+	
+		h = histogram(
+			QData[:,j],
+			normalize=:pdf,
+			fillcolor=MyColors[1],
+			label=L"$\tilde{\beta}=%$SimBeta$",
+			#
+			bins=range(-4.5,4.5,length=10),
+			ylims=[0,1],
+			size=(440,300),
+			title=L"%$Scheme, sequential ($\eta=%$(SimBetas[j]/N)$)",
+			xlabel=L"$Q$ (winding number)",
+			ylabel="Normalized occurrencies",
+		)
+		
+		FilePathOut = DirPathIn * "$(Scheme)_SimBeta=$SimBeta.pdf"
+		savefig(h, FilePathOut)
+		
+		push!(PlotDict, Dict("Histogram"=>h))
+		
+	end
+end
+

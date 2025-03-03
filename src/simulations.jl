@@ -5,39 +5,38 @@ using Dates
 using UnicodePlots
 
 PROJECT_ROOT = @__DIR__
+include(PROJECT_ROOT * "/setup/simulations_setup.jl")
 include(PROJECT_ROOT * "/setup/graphic_setup.jl")
 include(PROJECT_ROOT * "/modules/montecarlo.jl")
 include(PROJECT_ROOT * "/modules/processing.jl")
 include(PROJECT_ROOT * "/modules/plots.jl")
-include(PROJECT_ROOT * "/setup/simulations_setup.jl")
 
 """
 Simulation file. The settings are imported from /setup/simulations_setup.jl
 """
-
 function main()
 
     println()
 
-    for (sizeindex, N) in enumerate(NN), SimBeta in SimBetas
+    for (SizeIndex, N) in enumerate(NN), SimBeta in SimBetas
 
-        TailorStep = TailorSteps[sizeindex]
+        TailorStep = TailorSteps[SizeIndex]
 
-        AlgoName = heatbath ? "Heatbath" : "Metropolis"
+        Scheme = Heatbath ? "Heatbath" : "Metropolis"
 
         println()
 
         @info "\nModel settings" N SimBeta
-        @info AlgoName*" settings" heatbath Δ sequential NSweepsTherm NSweeps
+        @info Scheme*" settings" Heatbath Δ Sequential NSweepsTherm NSweeps
         @info "Tailor settings" TailorStep ε_over_η
 
         # Prepare file and write header
-        FolderOut = PROJECT_ROOT * "/../simulations/N=$N/"
-        FilePathOut = FolderOut * "SimBeta=$SimBeta.txt"
+        DirPathOut = PROJECT_ROOT * "/../simulations/N=$N/"
+        FilePathOut = DirPathOut * "SimBeta=$SimBeta.txt"
         mkpath(dirname(FilePathOut))
         open(FilePathOut, "w") do io
-            write(io, "# Δ=$Δ sequential=$sequential NSweepsTherm=$NSweepsTherm\n")
-            write(io, "# TailorStep=$TailorStep ε_over_η=$ε_over_η\n")
+            write(io, "# Δ=$Δ, Sequential=$Sequential, NSweepsTherm=$NSweepsTherm\n")
+            write(io, "# TailorStep=$TailorStep, ε_over_η=$ε_over_η\n")
             write(io, "# [Calculated at $(now())]\n")
         end
 
@@ -48,24 +47,27 @@ function main()
         CounterTailor = [0, 0, 0]
 
         # Thermalization
-        println("\nPerforming $NSweepsTherm " * AlgoName * " sweeps for thermalization...")
+        println("\nPerforming $NSweepsTherm " * Scheme * " sweeps for thermalization...")
         @time for i in 1:NSweepsTherm
-            CurrentMetroSteps = N*(i-1)
+            CurrentSweepSteps = N*(i-1)
             for j in 1:N
+                
                 # Choose site
-                if sequential
-                    Site = mod1(CurrentMetroSteps + j, N)
-                else
+                if Sequential
+                    Site = mod1(CurrentSweepSteps + j, N)
+                elseif !Sequential
                     Site = rand(1:N)
                 end
+                
                 # Perform update
-                if heatbath == false
-                    MetropolisUpdate!(Config, Site; Δ)
-                else
+                if Heatbath
                     HeatBathUpdate!(Config, Site)
+                elseif !Heatbath
+                   MetropolisUpdate!(Config, Site; Δ) 
                 end
+                
                 # Perform tailor update
-                if TailorStep !== 0 && mod(CurrentMetroSteps + j, TailorStep) == 0
+                if TailorStep !== 0 && mod(CurrentSweepSteps + j, TailorStep) == 0
                     FoundT, AccT, _ = TailorUpdate!(Config, rand(1:N), ε)
                     CounterTailor += [FoundT, AccT, 1]
                 end
@@ -79,37 +81,37 @@ function main()
         #gui()
 
         # Local update sweeps
-        println("\nPerforming $NSweeps "* AlgoName * " sweeps of the whole lattice...")
+        println("\nPerforming $NSweeps "* Scheme * " sweeps of the whole lattice...")
 
         NMetro = NSweeps * N
-        QQ = fill(0, NSweeps)
+        QQ = zeros(NSweeps)
 
         @time for i in 1:NSweeps
 
-            CurrentMetroSteps = N*(i-1)
+            CurrentSweepSteps = N*(i-1)
 
             # Sweep over lattice
             for j in 1:N
 
-                if sequential
-                    Site = mod1(CurrentMetroSteps + j, N)
-                else
+                if Sequential
+                    Site = mod1(CurrentSweepSteps + j, N)
+                elseif !Sequential
                     Site = rand(1:N)
                 end
 
                 # Perform update
-                if heatbath == false
+                if !Heatbath
                     Accepted = MetropolisUpdate!(Config, Site; Δ)
                     Counter += Accepted
-                else
+                elseif Heatbath
                     HeatBathUpdate!(Config, Site)
                     Counter += 1
                 end
 
                 # Every TailorStep updates, perform a tailor update.
                 # if rand(1:N) == 1 # TODO change
-                if TailorStep !== 0 && mod(CurrentMetroSteps + j, TailorStep) == 0
-                    Site = mod1(CurrentMetroSteps + j, N)
+                if TailorStep !== 0 && mod(CurrentSweepSteps + j, TailorStep) == 0
+                    Site = rand(1:N)
                     FoundT, AccT, _ = TailorUpdate!(Config, Site, ε)
                     CounterTailor += [FoundT, AccT, 1]
                 end

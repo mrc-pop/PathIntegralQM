@@ -5,8 +5,8 @@ using Statistics
 using Plots
 
 PROJECT_ROOT = @__DIR__
-include(PROJECT_ROOT * "/../src/setup/graphic_setup.jl")
 include(PROJECT_ROOT * "/../src/setup/simulations_setup.jl")
+include(PROJECT_ROOT * "/../src/setup/graphic_setup.jl")
 include(PROJECT_ROOT * "/../src/modules/processing.jl")
 
 const k = 1000  # block length. TODO CHANGE

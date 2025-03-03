@@ -4,18 +4,22 @@
 # determined using the other scripts
 
 """
-Choose model parameters; metropolis parameters; tailor parameters for the simulation routine.
+Choose model parameters; Metropolis parameters; tailor parameters for the simulation routine.
 """
 
-const NN = [20, 40, 60, 80, 100, 200, 300]              # number of lattice points
-const SimBetas = [2.0]          # adimensional inverse temperature
+const NN = [20, 40, 60, 80, 100]			# Number of lattice points
+const SimBetas = [0.01, 0.025. 0.05, 0.075, 
+				  0.1, 0.25, 0.5, 0.75,
+				  1.0, 2.5, 5.0, 7.5,
+				  10.0]          			# Adimensional inverse temperature
 
-const heatbath = false          # type of local algorithm (false → metropolis)
-const NSweepsTherm = Int(1e6)   # number of updates of the whole lattice for thermalization
-const NSweeps = Int(1e6)        # number of updates of the whole lattice
-const Δ = 0.5                   # metro interval width
-const sequential = true        # sequential or random site choice
+const Heatbath = false          			# Type of local algorithm (false → Metropolis)
+const NSweepsTherm = Int(1e6)   			# Number of updates of the whole lattice for thermalization
+const NSweeps = Int(1e6)        			# Number of updates of the whole lattice
+const Δ = 0.5                   			# Metropolis interval width
+const Sequential = true        				# Sequential or random site choice
 
-const TailorSteps = round.(1.0 .* NN)    # how often to propose tailor update, for each N (0 = never)
+const QSteps = fill(1,length(NN))    		# How often to compute Q, for each N (0 = never, 1=always, n=after n-1 steps)
+const TailorSteps = round.(1.0 .* NN)    	# How often to propose a tailor update, for each N (0 = never)
     # fill(0,length(NN))
-const ε_over_η = 0.2            # tolerance of tailor update in units of η
+const ε_over_η = 0.2            			# Tolerance of tailor update in units of η

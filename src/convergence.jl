@@ -1,9 +1,11 @@
 #!/usr/bin/julia
 
+using Printf
 using DelimitedFiles
 using Dates
 
 PROJECT_ROOT = @__DIR__
+include(PROJECT_ROOT * "/setup/simulations_setup.jl")
 include(PROJECT_ROOT * "/setup/graphic_setup.jl")
 include(PROJECT_ROOT * "/modules/montecarlo.jl")
 include(PROJECT_ROOT * "/modules/plots.jl")
@@ -19,113 +21,115 @@ configurations:
 """
 
 function RunConvergenceSimulations(
-	Scheme::String,
-	UserDelta::Float64,
 	N::Int64,
-	NSteps::Int64,
+	NSweepsTherm::Int64,
+	NSweeps::Int64,
 	SimBetas::Vector{Float64},
-	IgnoredSteps::Int64;
-	RandomSite=false
+	QStep::Int64;
+	Sequential=false,
+	UserDelta=Δ
 )
-	
-	QScheme = zeros(Int64, floor(Int64, NSteps/(IgnoredSteps+1)), length(SimBetas))
-	
-	# Run simulations
-	for	(i,SimBeta) in enumerate(SimBetas)
-	
-		QCounter = 1
-		
-		Config = SetLattice(SimBeta, N)	# Initalize path
-		printstyled("Performing simulation $i/$(length(SimBetas)) at SimBeta=$(SimBetas[i])...", color=:yellow)
 
-		IgnoreCounter = IgnoredSteps+1	# Initialize ignore counter
-		for j in 1:NSteps
+	MetropolisQMatrix = zeros(Int64, floor(Int64, NSweeps*N/QStep), length(SimBetas))
+	HeatbathQMatrix = MetropolisQMatrix
+	
+	for Heatbath in [false, true]
 		
-			if !RandomSite
-				Site = j % (N-3) + 2 	# from 2 to N-1 (sequential)
-			elseif RandomSite
-				Site = rand(2:N-1) 		# (random)
-			end
-			
-			# TODO Vary UserDelta
-			
-			if Scheme=="Metropolis"
-				MetropolisUpdate!(Config, Site; Δ=UserDelta, verbose=false)
-			elseif Scheme=="Heatbath"
-				HeatBathUpdate!(Config, Site; verbose=false)
-			else
-				error("Invalid algorithm. Exiting.")
-			end
-	 		
-			if IgnoreCounter==0 
-		   		IgnoreCounter = IgnoredSteps
-		   		QScheme[QCounter, i] = round(Int64, CalculateQ(Config))
-		   		QCounter += 1
-		   		
-		   	elseif IgnoreCounter>0
-		   		IgnoreCounter -= 1
-		   	else
-		   		printstyled("There's something strange with your counter, man.\n", color=:red)
-		   	end	
+		if !Heatbath
+			@info "Starting Metropolis simulations..."
+		elseif Heatbath
+			@info "Starting Heatbath simulations..."
+		end
+	
+		QMatrix = zeros(Int64, floor(Int64, NSweeps*N/(QStep)), length(SimBetas))
+	
+		if !Heatbath
+			QMatrix = MetropolisQMatrix
+		elseif Heatbath
+			QMatrix = HeatbathQMatrix
 		end
 		
-		printstyled(" Done.\n", color=:green)
-	end
+		Scheme = Heatbath ? "Heatbath" : "Metropolis"
+	
+		# Run simulations
+		for	(sb,SimBeta) in enumerate(SimBetas)
+			
+			QCounter = 1
+			Config = SetLattice(SimBeta, N)	# Initalize path
+			
+			println()
+			@info "Model settings" N SimBeta
+		    @info Scheme * " settings" Heatbath Δ Sequential NSweepsTherm NSweeps
+			@info "Simulation $sb/$(length(SimBetas))"
 
-	return QScheme
+			# Thermalization
+		    println("\nPerforming $NSweepsTherm " * Scheme * " sweeps for thermalization...")
+		    @time for i in 1:NSweepsTherm
+		        CurrentSweepSteps = N*(i-1)
+		        for j in 1:N
+		            # Choose site
+		            if Sequential
+		                Site = mod1(CurrentSweepSteps + j, N)
+		            elseif !Sequential
+		                Site = rand(1:N)
+		            end
+		            # Perform update
+		            if !Heatbath
+		            	MetropolisUpdate!(Config, Site; Δ=UserDelta)
+		            elseif Heatbath
+		            	HeatBathUpdate!(Config, Site)
+		            end         
+		        end
+		    end
+		    
+	#        unicodeplots()
+	#        p = PlotPathUnicode(Config)
+	#        @info "Plot after thermalization " p
+
+		    # Local update sweeps
+		    println("\nPerforming $NSweeps "* Scheme * " sweeps of the whole lattice...")
+
+			# Main run
+			@time for i in 1:NSweeps
+				CurrentSweepSteps = N*(i-1)
+				for j in 1:N
+					# Choose site
+				    if Sequential
+				        Site = mod1(CurrentSweepSteps + j, N)
+				    elseif !Sequential
+				        Site = rand(1:N)
+				    end
+					# Perform update
+		            if !Heatbath
+		            	MetropolisUpdate!(Config, Site; Δ=UserDelta) 
+		            elseif Heatbath
+		            	HeatBathUpdate!(Config, Site)
+		            end
+			 		# Measure Q
+				    if QStep !== 0 && mod(CurrentSweepSteps + j, QStep) == 0
+				        QMatrix[QCounter,sb] = CalculateQ(Config)
+				        QCounter += 1
+				    end
+				end
+			end
+		end
+		
+		if !Heatbath
+			MetropolisQMatrix = QMatrix
+		elseif Heatbath
+			HeatbathQMatrix = QMatrix
+		end
+		
+	end
+	
+	return MetropolisQMatrix, HeatbathQMatrix
 end
 
-function PlotHistograms(
-	DirPathIn::String,
-	Scheme::String,
-	UserDelta::Float64,
-	N::Int64,
-	NSteps::Int64,
-	SimBetas::Vector{Float64},
-	IgnoredSteps::Int64
-)
-
-	FilePathIn = DirPathIn * "/$(Scheme)_NSteps=$(NSteps).txt"
-	QData = readdlm(FilePathIn, ';', comments=true)
-	
-	# Mastruzzo here
-	PlotDict = Vector{Dict}()
-	
-	for (j,SimBeta) in enumerate(SimBetas)
-	
-		h = histogram(
-			QData[:,j],
-			normalize=:pdf,
-			fillcolor=MyColors[1],
-			label=L"$\tilde{\beta}=%$SimBeta$",
-			#
-			bins=range(-4.5,4.5,length=10),
-			ylims=[0,1],
-			size=(440,300),
-			title=L"%$Scheme, sequential ($\eta=%$(SimBetas[j]/N)$)",
-			xlabel=L"$Q$ (winding number)",
-			ylabel="Normalized occurrencies",
-		)
-		
-		FilePathOut = DirPathIn * "$(Scheme)_SimBeta=$SimBeta.pdf"
-		savefig(h, FilePathOut)
-		
-		push!(PlotDict, Dict("Histogram"=>h))
-		
-	end
-end
+# ------------------------------------ Main ------------------------------------ 
 
 function main()
 
-	RS = false												# Random site selection
-	
-	NStepsString = "1E5"									# Number of single-site update steps
-	NSteps = Int64(parse(Float64, NStepsString))
-	N = 20													# Number of time steps
-	SimBetas = [0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]		# Adimensional betas (Beta/kB*T)
-	# Etas = round.(SimBetas./N, digits=2)
-
-	# Write files headers
+	# Prepare files headers: first line contains SimBetas
 	SimBetasHeader = "# First line: SimBetas\n"
 	QHeader = "# Following lines: Qs (divided for each eta) [calculated $(now())]\n"
 	
@@ -137,70 +141,40 @@ function main()
 	popat!(SimBetasChars, length(SimBetasString)-1)
 	SimBetasString = String(SimBetasChars) * "\n"
 
-	IgnoredSteps = 0						# After 50 steps extract Q
-
-	Schemes = ["Metropolis", "Heatbath"] 	# Algorithms
-	UserDelta = 0.05
-
-	if RS
-		DirPathOut = PROJECT_ROOT * "/../convergence/data/random/N=$(N)/"
-	elseif !RS
-		DirPathOut = PROJECT_ROOT * "/../convergence/data/sequential/N=$(N)/"
-	end
-	mkpath(DirPathOut)
-
-	for (s,Scheme) in enumerate(Schemes)
-		println("Starting $(Scheme) simulations...")
-
-		FilePathOut = DirPathOut * "/$(Scheme)_NSteps=$(NStepsString).txt"
-		DataFile = open(FilePathOut, "w")
-		write(DataFile, SimBetasHeader)
-		write(DataFile, SimBetasString)
-		write(DataFile, QHeader)
-		close(DataFile)
-		
-		QScheme = RunConvergenceSimulations(Scheme, UserDelta, N, NSteps, SimBetas, IgnoredSteps; RandomSite=RS)
-		
-		# Write on file
-		DataFile = open(FilePathOut, "a")
-		
-		for i in 1:floor(Int64, NSteps/(IgnoredSteps+1))
-			# Generate entry
-			Entry = ""
-		
-			for j in 1:length(SimBetas)
-				Entry *= "$(QScheme[i,j]); "
-			end
-		
-			EntryChars = collect(Entry)
-			pop!(EntryChars)
-			EntryChars[end] = '\n'
-			Entry = String(EntryChars)
-			write(DataFile, Entry)
+	for (n,N) in enumerate(NN)
+	
+		QStep = QSteps[n]
+	
+		if Sequential
+			DirPathOut = PROJECT_ROOT * "/../convergence/sequential/N=$(N)/"
+		elseif !Sequential
+			DirPathOut = PROJECT_ROOT * "/../convergence/random/N=$(N)/"
 		end
-		
-		close(DataFile)
-	end
-	
-	Waiting=true
-	print("Plot results? (y/n) ")
-	UserPlot = readline()
-	
-	while Waiting
-		if UserPlot=="y"
-			Waiting=false
-			for Scheme in Schemes
-				PlotHistograms(DirPathOut, Scheme, UserDelta, N, NSteps, SimBetas, IgnoredSteps)
-			end
+		mkpath(DirPathOut)
+
+		println()
+		@info "Starting simulations for N=$N..."
+		MetropolisQMatrix, HeatbathQMatrix = RunConvergenceSimulations(N, NSweepsTherm, NSweeps, SimBetas, QStep; Sequential)
+		QMatrices = Dict([("Metropolis-Seq=$Sequential", MetropolisQMatrix), 
+						  ("Heatbath-Seq=$Sequential", HeatbathQMatrix)])
+
+		for (s,Scheme) in enumerate(["Metropolis", "Heatbath"])
+
+			NSweepsString = @sprintf "%.1e" NSweeps
+			FilePathOut = DirPathOut * "/$(Scheme)_NSweeps=$(NSweepsString).txt"
+			GeneralHeader = "# " * Scheme * ", Sequential=$(Sequential), NSweeps=" * NSweepsString * "\n"
 			
-		elseif UserPlot=="n"
-			Waiting=false
-			println("Aborting.")
-			exit()
-		else
-			Waiting=true
-			print("Invalid input. Plotting results? (y/n) ")
-			UserPlot = readline()
+			DataFile = open(FilePathOut, "w")
+			write(DataFile, GeneralHeader)
+			write(DataFile, SimBetasHeader)
+			write(DataFile, SimBetasString)
+			write(DataFile, QHeader)
+			close(DataFile)
+			
+			open(FilePathOut, "a") do io
+				A = QMatrices[Scheme * "-Seq=$Sequential"]
+		        writedlm(io, A, "; ")
+		    end
 		end
 	end
 end
