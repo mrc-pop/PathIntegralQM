@@ -33,16 +33,18 @@ function RunConvergenceSimulations(
 	# Run simulations
 	for	(i,SimBeta) in enumerate(SimBetas)
 	
-		Config = SetLattice(SimBeta, N)	# Initalize path
-		println("Performing simulation $i/$(length(SimBetas)): $NSteps $Scheme steps at Eta=$(SimBetas[i]/N)...")
+		QCounter = 1
 		
+		Config = SetLattice(SimBeta, N)	# Initalize path
+		printstyled("Performing simulation $i/$(length(SimBetas)) at SimBeta=$(SimBetas[i])...", color=:yellow)
+
 		IgnoreCounter = IgnoredSteps+1	# Initialize ignore counter
-		for j in 0:(NSteps-1)
+		for j in 1:NSteps
 		
 			if !RandomSite
 				Site = j % (N-3) + 2 	# from 2 to N-1 (sequential)
 			elseif RandomSite
-				Site = rand(2:N-1) 	# (random)
+				Site = rand(2:N-1) 		# (random)
 			end
 			
 			# TODO Vary UserDelta
@@ -56,15 +58,18 @@ function RunConvergenceSimulations(
 			end
 	 		
 			if IgnoreCounter==0 
-		   		IgnoreCounter = IgnoredSteps+1
-		   		QScheme[ceil(Int64, j/(IgnoredSteps+1)), i] = round(Int64, CalculateQ(Config))
-		   
+		   		IgnoreCounter = IgnoredSteps
+		   		QScheme[QCounter, i] = round(Int64, CalculateQ(Config))
+		   		QCounter += 1
+		   		
 		   	elseif IgnoreCounter>0
 		   		IgnoreCounter -= 1
 		   	else
-		   		println("There's something strange with your counter, man.")
+		   		printstyled("There's something strange with your counter, man.\n", color=:red)
 		   	end	
 		end
+		
+		printstyled(" Done.\n", color=:green)
 	end
 
 	return QScheme
@@ -108,42 +113,31 @@ function PlotHistograms(
 		push!(PlotDict, Dict("Histogram"=>h))
 		
 	end
-	
-	# display(PlotDict)
-	
-#	MetropolisHistogram = plot(
-#		PlotDict[1]["Histogram"],
-#		PlotDict[2]["Histogram"],
-#		PlotDict[3]["Histogram"],
-#		PlotDict[4]["Histogram"],
-#		PlotDict[5]["Histogram"],
-#		layout=(5,1),
-##		xlabel=L"$Q$ (winding number)",
-##		ylabel="Normalized occurrencies",
-#	)
-#	FilePathOut = DirPathIn * "$(Scheme).pdf"
-#	savefig(MetropolisHistogram, FilePathOut)
 end
 
 function main()
 
-	RS = true								# Random site selection
+	RS = false												# Random site selection
 	
-	NSteps = Int64(1E8)						# Number of single-site update steps
-    N = 100									# Number of time steps
-	SimBetas = [0.1, 0.5, 1.0, 2.0, 4.0]	# Adimensional betas (Beta/kB*T)
-	Etas = SimBetas./N
+	NStepsString = "1E5"									# Number of single-site update steps
+	NSteps = Int64(parse(Float64, NStepsString))
+	N = 20													# Number of time steps
+	SimBetas = [0.01, 0.05, 0.1, 0.5, 1.0, 5.0, 10.0]		# Adimensional betas (Beta/kB*T)
+	# Etas = round.(SimBetas./N, digits=2)
 
 	# Write files headers
-	Header = "# "
-	for Eta in Etas
-		Header *= "Q-Eta=$Eta; "
+	SimBetasHeader = "# First line: SimBetas\n"
+	QHeader = "# Following lines: Qs (divided for each eta) [calculated $(now())]\n"
+	
+	SimBetasString = ""
+	for SimBeta in SimBetas
+		SimBetasString *= "$SimBeta; "
 	end
-	HeaderChars = collect(Header)
-	popat!(HeaderChars, length(HeaderChars)-1)
-	Header = String(HeaderChars)
+	SimBetasChars = collect(SimBetasString)
+	popat!(SimBetasChars, length(SimBetasString)-1)
+	SimBetasString = String(SimBetasChars) * "\n"
 
-	IgnoredSteps = 49						# After 50 steps extract Q
+	IgnoredSteps = 0						# After 50 steps extract Q
 
 	Schemes = ["Metropolis", "Heatbath"] 	# Algorithms
 	UserDelta = 0.05
@@ -158,9 +152,11 @@ function main()
 	for (s,Scheme) in enumerate(Schemes)
 		println("Starting $(Scheme) simulations...")
 
-		FilePathOut = DirPathOut * "/$(Scheme)_NSteps=$(NSteps).txt"
+		FilePathOut = DirPathOut * "/$(Scheme)_NSteps=$(NStepsString).txt"
 		DataFile = open(FilePathOut, "w")
-		write(DataFile, Header * "[calculated $(now())]\n")
+		write(DataFile, SimBetasHeader)
+		write(DataFile, SimBetasString)
+		write(DataFile, QHeader)
 		close(DataFile)
 		
 		QScheme = RunConvergenceSimulations(Scheme, UserDelta, N, NSteps, SimBetas, IgnoredSteps; RandomSite=RS)
@@ -172,7 +168,7 @@ function main()
 			# Generate entry
 			Entry = ""
 		
-			for j in 1:length(Etas)
+			for j in 1:length(SimBetas)
 				Entry *= "$(QScheme[i,j]); "
 			end
 		
