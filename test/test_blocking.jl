@@ -22,15 +22,17 @@ function main()
 
     for SimBeta in SimBetas
 
+        plot()
+
         @time for N in NN
+
+            FilePathIn = PROJECT_ROOT * "/../simulations/N=$N/SimBeta=$SimBeta.txt"
+            QQ = readdlm(FilePathIn, '\n', Int64; comments=true)
 
             QQ2 = QQ.^2
             MeanQ2 = mean(QQ2)
 
             @info "Blocking for different block sizes" N SimBeta MeanQ2
-
-            FilePathIn = PROJECT_ROOT * "/../simulations/N=$N/SimBeta=$SimBeta.txt"
-            QQ = readdlm(FilePathIn, '\n', Int64; comments=true)
 
             ErrorsQ = fill(0.0, length(BlockSizes))
             ErrorsQ2 = fill(0.0, length(BlockSizes))

@@ -45,6 +45,42 @@ function PlotPath(Config::Configuration; location="nw")
     return p
 end
 
+function PlotPathUnicode(Config::Configuration)
+    Q = round(Int, CalculateQ(Config))
+
+    PacmanUpIndices = findall(diff(Config.Lattice) .< -0.5)
+    PacmanDownIndices = findall(diff(Config.Lattice) .> 0.5)
+
+    # Add x_{N+1} = x_0 for plotting PBC explicitly
+    LatticePlot = vcat(Config.Lattice, Config.Lattice[1])
+
+    # title = "β̃ = $(round(Config.SimBeta, digits=2)), N = $(Config.N), η = $(round(Config.Eta, digits=2)), Q = $Q"
+
+    p = lineplot(
+        1:Config.N+1,
+        LatticePlot,
+        title = "Q = $Q",
+        xlabel = "i",
+        ylabel = "xᵢ",
+        width = 60,
+        height = 15,
+        xlim = (1, Config.N+1),
+        ylim = (0.0, 1.0)
+    )
+
+    for i in 1:Config.N
+        if i in PacmanUpIndices
+            lineplot!(p, [i, i+1], [LatticePlot[i], LatticePlot[i+1]+1], color=:blue)
+            lineplot!(p, [i, i+1], [LatticePlot[i]-1, LatticePlot[i+1]], color=:blue)
+        elseif i in PacmanDownIndices
+            lineplot!(p, [i, i+1], [LatticePlot[i], LatticePlot[i+1]-1], color=:red)
+            lineplot!(p, [i, i+1], [LatticePlot[i]+1, LatticePlot[i+1]], color=:red)
+        end
+    end
+
+    return p
+end
+
 """
 Plot the tailor update as a dashed line with highlighted endpoints. Write over current plot.
 xxNewPlot is the output of the TailorUpdate! function.
