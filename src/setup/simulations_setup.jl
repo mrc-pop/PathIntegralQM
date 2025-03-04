@@ -14,8 +14,8 @@ const SimBetas = [0.01, 0.025. 0.05, 0.075,
 				  10.0]          			# Adimensional inverse temperature
 
 const Heatbath = false          			# Type of local algorithm (false → Metropolis)
-const NSweepsTherm = Int(1e6)   			# Number of updates of the whole lattice for thermalization
-const NSweeps = Int(1e6)        			# Number of updates of the whole lattice
+const NSweepsTherm = Int(1e2)   			# Number of updates of the whole lattice for thermalization
+const NSweeps = Int(1e3)        			# Number of updates of the whole lattice
 const Δ = 0.5                   			# Metropolis interval width
 const Sequential = true        				# Sequential or random site choice
 

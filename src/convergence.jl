@@ -3,11 +3,13 @@
 using Printf
 using DelimitedFiles
 using Dates
+using StatsBase
 
 PROJECT_ROOT = @__DIR__
 include(PROJECT_ROOT * "/setup/simulations_setup.jl")
 include(PROJECT_ROOT * "/setup/graphic_setup.jl")
 include(PROJECT_ROOT * "/modules/montecarlo.jl")
+include(PROJECT_ROOT * "/modules/convergence_quality.jl")
 include(PROJECT_ROOT * "/modules/plots.jl")
 
 """
@@ -20,118 +22,33 @@ configurations:
 - Random selection Heatbath
 """
 
-function RunConvergenceSimulations(
-	N::Int64,
-	NSweepsTherm::Int64,
-	NSweeps::Int64,
-	SimBetas::Vector{Float64},
-	QStep::Int64;
-	Sequential=false,
-	UserDelta=Δ
-)
+function main()
 
-	MetropolisQMatrix = zeros(Int64, floor(Int64, NSweeps*N/QStep), length(SimBetas))
-	HeatbathQMatrix = MetropolisQMatrix
-	
-	for Heatbath in [false, true]
-		
-		if !Heatbath
-			@info "Starting Metropolis simulations..."
-		elseif Heatbath
-			@info "Starting Heatbath simulations..."
+	DeepAnalysis = false
+	Waiting = true
+	print("Should I perform a deep analysis on Q samples? (y/n) ")
+	UserInput = readline()
+	while Waiting
+		if UserInput == "y"
+			Waiting = false
+			@info "Deep analysis accepted"
+			DeepAnalysis = true
+		elseif UserInput == "n"
+			Waiting = false
+			@info "Deep analysis rejected"
+		else
+			Waiting = true
+			print("\nInvalid input. Please use y or n to answer. Should I perform a deep analysis on Q samples? (y/n) ")
 		end
-	
-		QMatrix = zeros(Int64, floor(Int64, NSweeps*N/(QStep)), length(SimBetas))
-	
-		if !Heatbath
-			QMatrix = MetropolisQMatrix
-		elseif Heatbath
-			QMatrix = HeatbathQMatrix
-		end
-		
-		Scheme = Heatbath ? "Heatbath" : "Metropolis"
-	
-		# Run simulations
-		for	(sb,SimBeta) in enumerate(SimBetas)
-			
-			QCounter = 1
-			Config = SetLattice(SimBeta, N)	# Initalize path
-			
-			println()
-			@info "Model settings" N SimBeta
-		    @info Scheme * " settings" Heatbath Δ Sequential NSweepsTherm NSweeps
-			@info "Simulation $sb/$(length(SimBetas))"
-
-			# Thermalization
-		    println("\nPerforming $NSweepsTherm " * Scheme * " sweeps for thermalization...")
-		    @time for i in 1:NSweepsTherm
-		        CurrentSweepSteps = N*(i-1)
-		        for j in 1:N
-		            # Choose site
-		            if Sequential
-		                Site = mod1(CurrentSweepSteps + j, N)
-		            elseif !Sequential
-		                Site = rand(1:N)
-		            end
-		            # Perform update
-		            if !Heatbath
-		            	MetropolisUpdate!(Config, Site; Δ=UserDelta)
-		            elseif Heatbath
-		            	HeatBathUpdate!(Config, Site)
-		            end         
-		        end
-		    end
-		    
-	#        unicodeplots()
-	#        p = PlotPathUnicode(Config)
-	#        @info "Plot after thermalization " p
-
-		    # Local update sweeps
-		    println("\nPerforming $NSweeps "* Scheme * " sweeps of the whole lattice...")
-
-			# Main run
-			@time for i in 1:NSweeps
-				CurrentSweepSteps = N*(i-1)
-				for j in 1:N
-					# Choose site
-				    if Sequential
-				        Site = mod1(CurrentSweepSteps + j, N)
-				    elseif !Sequential
-				        Site = rand(1:N)
-				    end
-					# Perform update
-		            if !Heatbath
-		            	MetropolisUpdate!(Config, Site; Δ=UserDelta) 
-		            elseif Heatbath
-		            	HeatBathUpdate!(Config, Site)
-		            end
-			 		# Measure Q
-				    if QStep !== 0 && mod(CurrentSweepSteps + j, QStep) == 0
-				        QMatrix[QCounter,sb] = CalculateQ(Config)
-				        QCounter += 1
-				    end
-				end
-			end
-		end
-		
-		if !Heatbath
-			MetropolisQMatrix = QMatrix
-		elseif Heatbath
-			HeatbathQMatrix = QMatrix
-		end
-		
 	end
 	
-	return MetropolisQMatrix, HeatbathQMatrix
-end
-
-# ------------------------------------ Main ------------------------------------ 
-
-function main()
+	Now = now()	# Comparable timestamps
 
 	# Prepare files headers: first line contains SimBetas
 	SimBetasHeader = "# First line: SimBetas\n"
-	QHeader = "# Following lines: Qs (divided for each eta) [calculated $(now())]\n"
+	QHeader = "# Following lines: Qs (divided for each SimBeta) [calculated $Now]\n"
+	QCorrelatorsHeader = "# Following lines: Q correlator at increasing distance (divided for each SimBeta) [calculated $Now]\n"
+	QHistogramsHeader = "# SimBeta; Q weights; Q edges; [calculated $Now]\n"
 	
 	SimBetasString = ""
 	for SimBeta in SimBetas
@@ -140,6 +57,8 @@ function main()
 	SimBetasChars = collect(SimBetasString)
 	popat!(SimBetasChars, length(SimBetasString)-1)
 	SimBetasString = String(SimBetasChars) * "\n"
+
+	NSweepsString = @sprintf "%.1e" NSweeps
 
 	for (n,N) in enumerate(NN)
 	
@@ -154,15 +73,21 @@ function main()
 
 		println()
 		@info "Starting simulations for N=$N..."
-		MetropolisQMatrix, HeatbathQMatrix = RunConvergenceSimulations(N, NSweepsTherm, NSweeps, SimBetas, QStep; Sequential)
-		QMatrices = Dict([("Metropolis-Seq=$Sequential", MetropolisQMatrix), 
-						  ("Heatbath-Seq=$Sequential", HeatbathQMatrix)])
+		Results = RunConvergenceSimulations(N, NSweepsTherm, NSweeps, SimBetas, QStep; Sequential)
+		MetropolisQMatrix, MetropolisElapsedTime, HeatbathQMatrix, HeatbathElapsedTime = Results
+		QMatrices = Dict([("Metropolis-Seq=$Sequential", MetropolisQMatrix),
+						  ("Metropolis-Seq=$Sequential-Time", MetropolisElapsedTime), 
+						  ("Heatbath-Seq=$Sequential", HeatbathQMatrix),
+						  ("Heatbath-Seq=$Sequential-Time", HeatbathElapsedTime)])
 
 		for (s,Scheme) in enumerate(["Metropolis", "Heatbath"])
 
-			NSweepsString = @sprintf "%.1e" NSweeps
+			ElapsedTime = QMatrices[Scheme * "-Seq=$Sequential-Time"]
 			FilePathOut = DirPathOut * "/$(Scheme)_NSweeps=$(NSweepsString).txt"
-			GeneralHeader = "# " * Scheme * ", Sequential=$(Sequential), NSweeps=" * NSweepsString * "\n"
+			GeneralHeader = "# " * Scheme *
+							", Sequential=$(Sequential)," *
+							" NSweeps=" * NSweepsString *
+							", Elapsed time=$ElapsedTime\n"
 			
 			DataFile = open(FilePathOut, "w")
 			write(DataFile, GeneralHeader)
@@ -172,9 +97,90 @@ function main()
 			close(DataFile)
 			
 			open(FilePathOut, "a") do io
-				A = QMatrices[Scheme * "-Seq=$Sequential"]
-		        writedlm(io, A, "; ")
+				M = QMatrices[Scheme * "-Seq=$Sequential"]
+		        writedlm(io, M, "; ")
 		    end
+		end
+		
+		# -------------------------- In-depth analysis -------------------------
+		
+		# TODO Factorize: write an algorithm that can also read data files not
+		# TODO generate them from scratch each time.
+		
+		if DeepAnalysis
+			kMax = 100
+			Bins = -5.5:1.0:5.5 # -5, -4, ..., 4, 5
+			
+			MetropolisQCorrelators = zeros(kMax+1,length(SimBetas))
+			HeatbathQCorrelators = zeros(kMax+1,length(SimBetas))
+			QCorrelators = Dict()
+			
+			MetropolisQBlockLengths = Any[]
+			HeatbathQBlockLengths = Any[]
+			
+			MetropolisHistogram = Any[]	# TODO SISTEMA (anche linee 134-135)
+			HeatbathHistogram = Any[]	# TODO SISTEMA (anche linee 134-135)
+			QHistograms = Dict()
+			
+			for (sb,SimBeta) in enumerate(SimBetas)
+				for k in 1:kMax+1
+					MetropolisQCorrelators[k,sb] = GetQCorrelator(k, MetropolisQMatrix[:,sb])
+					HeatbathQCorrelators[k,sb] = GetQCorrelator(k, HeatbathQMatrix[:,sb])
+				end
+									
+				MetroQBL = GetQBlockLengths(MetropolisQMatrix[:,sb])
+				push!(MetropolisQBlockLengths, MetroQBL)
+				
+				HeatQBL = GetQBlockLengths(HeatbathQMatrix[:,sb])
+				push!(HeatbathQBlockLengths, HeatQBL)
+			
+				hM = fit(Histogram, MetroQBL, Bins)
+				push!(MetropolisHistogram, [SimBeta, hM.weights, hM.edges])
+				
+				hH = fit(Histogram, HeatQBL, Bins)
+				push!(HeatbathHistogram, [SimBeta, hH.weights, hH.edges])
+			
+			end
+			
+			QCorrelators = Dict([("Metropolis-Seq=$Sequential", MetropolisQCorrelators), 
+								("Heatbath-Seq=$Sequential", HeatbathQCorrelators)])
+			
+			QHistograms = Dict([("Metropolis-Seq=$Sequential", MetropolisHistogram), 
+								 ("Heatbath-Seq=$Sequential", HeatbathHistogram)])
+			
+			for (s,Scheme) in enumerate(["Metropolis", "Heatbath"])
+				mkpath(DirPathOut * "/Q_deep/")
+				
+				# Write correlators on file
+				FilePathOut = DirPathOut * "/Q_deep/$(Scheme)_NSweeps=$(NSweepsString)_QCorrelators.txt"
+				GeneralHeader = "# " * Scheme * ", Sequential=$(Sequential), NSweeps=" * NSweepsString * "\n"
+				
+				DataFile = open(FilePathOut, "w")
+				write(DataFile, GeneralHeader)
+				write(DataFile, SimBetasHeader)
+				write(DataFile, SimBetasString)
+				write(DataFile, QCorrelatorsHeader)
+				close(DataFile)
+				
+				open(FilePathOut, "a") do io
+					M = QCorrelators[Scheme * "-Seq=$Sequential"]
+				    writedlm(io, M, "; ")
+				end
+				
+				# Write binned data on file
+				FilePathOut = DirPathOut * "/Q_deep/$(Scheme)_NSweeps=$(NSweepsString)_QHistograms.txt"
+				GeneralHeader = "# " * Scheme * ", Sequential=$(Sequential), NSweeps=" * NSweepsString * "\n"
+				
+				DataFile = open(FilePathOut, "w")
+				write(DataFile, GeneralHeader)
+				write(DataFile, QHistogramsHeader)
+				close(DataFile)
+				
+				open(FilePathOut, "a") do io
+					M = QHistograms[Scheme * "-Seq=$Sequential"]
+				    writedlm(io, M, "; ")
+				end
+			end
 		end
 	end
 end
