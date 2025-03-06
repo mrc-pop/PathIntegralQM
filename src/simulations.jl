@@ -5,38 +5,39 @@ using Dates
 using UnicodePlots
 
 PROJECT_ROOT = @__DIR__
-include(PROJECT_ROOT * "/setup/simulations_setup.jl")
 include(PROJECT_ROOT * "/setup/graphic_setup.jl")
 include(PROJECT_ROOT * "/modules/montecarlo.jl")
 include(PROJECT_ROOT * "/modules/processing.jl")
 include(PROJECT_ROOT * "/modules/plots.jl")
+include(PROJECT_ROOT * "/setup/simulations_setup.jl")
 
 """
 Simulation file. The settings are imported from /setup/simulations_setup.jl
 """
+
 function main()
 
     println()
 
-    for (SizeIndex, N) in enumerate(NN), SimBeta in SimBetas
+    for (sizeindex, N) in enumerate(NN), SimBeta in SimBetas
 
-        TailorStep = TailorSteps[SizeIndex]
+        TailorStep = TailorSteps[sizeindex]
 
-        Scheme = Heatbath ? "Heatbath" : "Metropolis"
+        AlgoName = Heatbath ? "Heatbath" : "Metropolis"
 
         println()
 
         @info "\nModel settings" N SimBeta
-        @info Scheme*" settings" Heatbath Δ Sequential NSweepsTherm NSweeps
+#        @info AlgoName*" settings" Heatbath Δ Sequential NSweepsTherm NSweeps
         @info "Tailor settings" TailorStep ε_over_η
 
         # Prepare file and write header
-        DirPathOut = PROJECT_ROOT * "/../simulations/N=$N/"
-        FilePathOut = DirPathOut * "SimBeta=$SimBeta.txt"
+        FolderOut = PROJECT_ROOT * "/../simulations/N=$N/"
+        FilePathOut = FolderOut * "SimBeta=$SimBeta.txt"
         mkpath(dirname(FilePathOut))
         open(FilePathOut, "w") do io
-            write(io, "# Δ=$Δ, Sequential=$Sequential, NSweepsTherm=$NSweepsTherm\n")
-            write(io, "# TailorStep=$TailorStep, ε_over_η=$ε_over_η\n")
+            write(io, "# Δ=$Δ Sequential=$Sequential NSweepsTherm=$NSweepsTherm\n")
+            write(io, "# TailorStep=$TailorStep ε_over_η=$ε_over_η\n")
             write(io, "# [Calculated at $(now())]\n")
         end
 
@@ -45,31 +46,29 @@ function main()
         ε = ε_over_η * Config.Eta
         Counter = 0
         CounterTailor = [0, 0, 0]
+        Δcustom = sqrt(Config.Eta)
+        @info AlgoName*" settings" Heatbath Δcustom Sequential NSweepsTherm NSweeps
 
         # Thermalization
-        println("\nPerforming $NSweepsTherm " * Scheme * " sweeps for thermalization...")
+        println("\nPerforming $NSweepsTherm " * AlgoName * " sweeps for thermalization...")
         @time for i in 1:NSweepsTherm
-            CurrentSweepSteps = N*(i-1)
+            CurrentMetroSteps = N*(i-1)
             for j in 1:N
-                
                 # Choose site
                 if Sequential
-                    Site = mod1(CurrentSweepSteps + j, N)
-                elseif !Sequential
+                    Site = mod1(CurrentMetroSteps + j, N)
+                else
                     Site = rand(1:N)
                 end
-                
                 # Perform update
-                if Heatbath
+                if Heatbath == false
+                    MetropolisUpdate!(Config, Site; Δ=Δcustom)
+                else
                     HeatBathUpdate!(Config, Site)
-                elseif !Heatbath
-                   MetropolisUpdate!(Config, Site; Δ) 
                 end
-                
                 # Perform tailor update
-                if TailorStep !== 0 && mod(CurrentSweepSteps + j, TailorStep) == 0
-                    FoundT, AccT, _ = TailorUpdate!(Config, rand(1:N), ε)
-                    CounterTailor += [FoundT, AccT, 1]
+                if TailorStep !== 0 && mod(CurrentMetroSteps + j, TailorStep) == 0
+                    TailorUpdate!(Config, rand(1:N), ε)
                 end
             end
         end
@@ -78,48 +77,64 @@ function main()
         p = PlotPathUnicode(Config)
         @info "Plot after thermalization " p
 
-        #gui()
-
         # Local update sweeps
-        println("\nPerforming $NSweeps "* Scheme * " sweeps of the whole lattice...")
+        println("\nPerforming $NSweeps "* AlgoName * " sweeps of the whole lattice...")
 
         NMetro = NSweeps * N
-        QQ = zeros(NSweeps)
+        MeasureInterval = QSteps[sizeindex]
+        ExpectedMeasurements = NSweeps * N ÷ MeasureInterval
+        QQ = fill(0, ExpectedMeasurements)
+        MeasureCount = 0
+
+        Site = 1 # starting site
 
         @time for i in 1:NSweeps
 
-            CurrentSweepSteps = N*(i-1)
+            CurrentMetroSteps = N*(i-1)
 
             # Sweep over lattice
             for j in 1:N
 
-                if Sequential
-                    Site = mod1(CurrentSweepSteps + j, N)
-                elseif !Sequential
+                if Sequential == false
                     Site = rand(1:N)
                 end
 
                 # Perform update
-                if !Heatbath
-                    Accepted = MetropolisUpdate!(Config, Site; Δ)
+                if Heatbath == false
+                    Accepted = MetropolisUpdate!(Config, Site; Δ=Δcustom)
                     Counter += Accepted
-                elseif Heatbath
+                    Site = mod1(Site+1, N)
+                else
                     HeatBathUpdate!(Config, Site)
                     Counter += 1
                 end
 
-                # Every TailorStep updates, perform a tailor update.
-                # if rand(1:N) == 1 # TODO change
-                if TailorStep !== 0 && mod(CurrentSweepSteps + j, TailorStep) == 0
-                    Site = rand(1:N)
-                    FoundT, AccT, _ = TailorUpdate!(Config, Site, ε)
-                    CounterTailor += [FoundT, AccT, 1]
-                end
-            end
+                #@info "Performed local update." PlotPathUnicode(Config)
 
-            # Save the value of Q after the sweep
-            QQ[i] = CalculateQ(Config)
+                # Every TailorStep updates, perform a tailor update.
+                if TailorStep !== 0 && mod(CurrentMetroSteps + j, TailorStep) == 0
+                    FoundT, AccT, iEnd, _ = TailorUpdate!(Config, Site, ε)
+                    CounterTailor += [FoundT, AccT, 1]
+                    #@info "Performed tailor update. Found? $FoundT. i=$Site, iEnd=$iEnd" PlotPathUnicode(Config)
+
+                    if iEnd !== nothing
+                        Site = mod1(iEnd + 1, N)
+                    end
+                end
+
+                # Measure Q
+                if mod(CurrentMetroSteps + j, MeasureInterval) == 0
+                    MeasureCount += 1
+                    QQ[MeasureCount] = CalculateQ(Config)
+                end
+
+            end
         end
+
+        # Ensure we only save the measured values
+        QQ = QQ[1:MeasureCount]
+
+        printstyled("\nAverage of Q² over $MeasureCount measurements: $(mean(QQ.^2))\n", color=:yellow)
 
         # Save QQ on file by appending
         open(FilePathOut, "a") do io

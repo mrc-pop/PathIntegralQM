@@ -3,23 +3,30 @@
 # TODO set simulations routine according to the best tradeoff,
 # determined using the other scripts
 
-"""
-Choose model parameters; Metropolis parameters; tailor parameters for the simulation routine.
-"""
+"""MODEL SETTINGS"""
+const NN = [25, 50, 75, 100,
+            125, 150, 175, 200,
+            300, 400]			            # Number of lattice points
 
-const NN = [20, 40, 60, 80, 100]			# Number of lattice points
-const SimBetas = [0.01, 0.025. 0.05, 0.075, 
+const SimBetas = [0.01, 0.025, 0.05, 0.075,
 				  0.1, 0.25, 0.5, 0.75,
 				  1.0, 2.5, 5.0, 7.5,
 				  10.0]          			# Adimensional inverse temperature
 
+"""ALGORITHM SETTINGS"""
 const Heatbath = false          			# Type of local algorithm (false → Metropolis)
 const NSweepsTherm = Int(1e2)   			# Number of updates of the whole lattice for thermalization
-const NSweeps = Int(1e3)        			# Number of updates of the whole lattice
+const NSweeps = Int(1e5)        			# Number of updates of the whole lattice
 const Δ = 0.5                   			# Metropolis interval width
 const Sequential = true        				# Sequential or random site choice
 
-const QSteps = fill(1,length(NN))    		# How often to compute Q, for each N (0 = never, 1=always, n=after n-1 steps)
 const TailorSteps = round.(1.0 .* NN)    	# How often to propose a tailor update, for each N (0 = never)
-    # fill(0,length(NN))
 const ε_over_η = 0.2            			# Tolerance of tailor update in units of η
+
+"""MEASUREMENT SETTINGS"""
+const QSteps = fill(1,length(NN))    		# How often to compute Q, for each N (0 = never, 1=always, n=after n-1 steps)
+
+"""PARALLEL TEMPERING SETTINGS"""
+const NR = 1                                # number of systems to be simulated in parallel
+const Ratio = 1.2                           # ratio between the η of successive systems.
+const SwapStep = 50                         # how often to propose an exchange

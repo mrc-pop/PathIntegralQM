@@ -66,6 +66,19 @@ function CalculateQ(Config::Configuration; WarningQty=0.001)
     return round(Int64, TotalDistance)
 end
 
+"""
+Calculate Euclidean action S of the configuration.
+"""
+function CalculateS(Config::Configuration)
+    # Calculate diffs d(x_i, x_{i+1}) for all i
+    Diffs = [CalculateDistance(Config.Lattice[mod1(R+1,Config.N)], Config.Lattice[R])
+             for R in 1:Config.N]
+    # Sum the diffs
+    S = 0.5 * (Config.Eta)^(-1) * sum(Diffs.^2)
+
+    return S
+end
+
 # ---------------------------------- Updates -----------------------------------
 
 """
@@ -80,55 +93,40 @@ function MetropolisUpdate!(
     η = Config.Eta
     x = Config.Lattice[Site]
     N = Config.N
-    xNext = Config.Lattice[mod1(Site+1,N)]
+    xNext = Config.Lattice[mod1(Site+1,N)] # N ↦ 1
     xPrev = Config.Lattice[mod1(Site-1,N)] # 1 ↦ N
 
     xTest = mod(x + Δ * (1 - 2 * rand()), 1)
 	xAvg = (xNext + xPrev)/2
 
-	if (abs(CalculateDistance(xAvg, xTest)) <= abs(CalculateDistance(xAvg, x)))
-	 	Config.Lattice[Site] = xTest
+    ΔS = 0.5 * η^(-1) * (
+        CalculateDistance(xTest, xPrev)^2
+        + CalculateDistance(xNext, xTest)^2
+        - CalculateDistance(x, xPrev)^2
+        - CalculateDistance(xNext, x)^2
+        )
+
+    if verbose
+        printstyled("\nSite=$Site, x=$(round(x,digits=3)), xTest=$(round(xTest,digits=3))\n",
+            color=:yellow)
+        printstyled("ΔS=$(round(ΔS,digits=3)), exp(-ΔS)=$(round(exp(-ΔS),digits=3))\n",
+            color=:yellow)
+    end
+
+    if ΔS <= 0 || rand() < exp(-ΔS)
+        Config.Lattice[Site] = xTest
         if verbose
-        	printstyled(
-                "\nSite=$Site, x=$(round(x,digits=3)), xTest=$(round(xTest,digits=3))\n",
-                color=:cyan
-            )
-            printstyled("ΔS<=0. Automatically accepted.\n", color=:cyan)
+            printstyled("Accepted. Yay.\n", color=:green)
         end
 
         return 1	# Add to external counter
+    else
+        if verbose
+            printstyled("\nNot accepted. Rip.\n", color=:red)
+        end
 
-	elseif (abs(CalculateDistance(xAvg, xTest)) > abs(CalculateDistance(xAvg, x)))
-
-		ΔS = 0.5 * η^(-1) * (
-			CalculateDistance(xTest, xPrev)^2
-			+ CalculateDistance(xNext, xTest)^2
-			- CalculateDistance(x, xPrev)^2
-			- CalculateDistance(xNext, x)^2
-			)
-
-		if verbose
-			printstyled("\nSite=$Site, x=$(round(x,digits=3)), xTest=$(round(xTest,digits=3))\n",
-                color=:yellow)
-            printstyled("ΔS=$(round(ΔS,digits=3)), exp(-ΔS)=$(round(exp(-ΔS),digits=3))\n",
-                color=:yellow)
-		end
-
-		if rand() < exp(-ΔS)
-			Config.Lattice[Site] = xTest
-			if verbose
-				printstyled("Accepted. Yay.\n", color=:green)
-			end
-
-			return 1	# Add to external counter
-		else
-			if verbose
-			    printstyled("\nNot accepted. Rip.\n", color=:red)
-			end
-
-			return 0	# Add to external counter
-		end
-	end
+        return 0	# Add to external counter
+    end
 end
 
 """
@@ -191,6 +189,13 @@ function TailorUpdate!(Config::Configuration, Site::Int64, ε::Float64; verbose=
 
     Acc = 0
 
+    if verbose
+        printstyled("\nSite=$Site, x_S=$(round(x,digits=3)), x_E=$(round(Config.Lattice[iEnd],digits=3))\n",
+            color=:yellow)
+        printstyled("ΔS=$(round(ΔS,digits=3)), exp(-ΔS)=$(round(exp(-ΔS),digits=3))\n",
+            color=:yellow)
+    end
+
     if ΔS <= 0 || rand() < exp(-ΔS)
         Config.Lattice[1:DeltaiEnd] = xxTest # accept the update
         Acc = 1
@@ -206,4 +211,54 @@ function TailorUpdate!(Config::Configuration, Site::Int64, ε::Float64; verbose=
     xxNewPlot = vcat(Config.Lattice[i], xxTest, Config.Lattice[mod1(iEnd+1,N)])
 
     return Found, Acc, iEnd, xxNewPlot
+end
+
+
+"""
+Perform a parallel tempering update, proposing to swap Config1 and Config2.
+"""
+function ParallelTemperingUpdate!(
+    Config1::Configuration,
+    Config2::Configuration;
+    verbose=false
+)
+
+    if length(Config1.Lattice) != length(Config2.Lattice)
+        error("Error! Lattices must be of the same size to propose swap.")
+    end
+
+    S1 = CalculateS(Config1)
+    η1 = Config1.Eta
+
+    S2 = CalculateS(Config2)
+    η2 = Config2.Eta
+
+    # Calculate the new action after the exchange of S1 ↔ S_2
+    S1New = η2 / η1 * S2
+    S2New = η1 / η2 * S1
+
+    # Define acceptance probability
+    AccProb = exp(- S2New - S1New + S1 + S2)
+
+    if verbose
+        println("Acceptance probability of swap: $AccProb.")
+    end
+
+    # Metropolis acceptance
+    if AccProb > 1 || rand() < AccProb
+        # Accept swap (using a temporary array)
+        temp = copy(Config1.Lattice)
+        Config1.Lattice .= Config2.Lattice
+        Config2.Lattice .= temp
+        if verbose
+            println("Swap accepted.")
+        end
+        return 1
+    end
+
+    if verbose
+        println("Swap rejected.")
+    end
+
+    return 0
 end
