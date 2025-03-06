@@ -4,6 +4,8 @@ using Printf
 using DelimitedFiles
 using Dates
 using StatsBase
+using Plots
+using UnicodePlots
 
 PROJECT_ROOT = @__DIR__
 include(PROJECT_ROOT * "/setup/simulations_setup.jl")
@@ -21,7 +23,6 @@ configurations:
 - Sequential Heatbath
 - Random selection Heatbath
 """
-
 function main()
 
 	DeepAnalysis = false
@@ -38,7 +39,8 @@ function main()
 			@info "Deep analysis rejected"
 		else
 			Waiting = true
-			print("\nInvalid input. Please use y or n to answer. Should I perform a deep analysis on Q samples? (y/n) ")
+			print("Invalid input. Please use y or n to answer. Should I perform a deep analysis on Q samples? (y/n) ")
+			UserInput = readline()
 		end
 	end
 	
@@ -57,8 +59,17 @@ function main()
 	SimBetasChars = collect(SimBetasString)
 	popat!(SimBetasChars, length(SimBetasString)-1)
 	SimBetasString = String(SimBetasChars) * "\n"
+	
+	AdditionalHeaders = Dict([
+		("Q", QHeader),
+		("QCorrelators", QCorrelatorsHeader),
+		("QHistograms", QHistogramsHeader),
+		("SimBetas", SimBetasHeader),
+		("SimBetasValues", SimBetasString)
+	])
 
 	NSweepsString = @sprintf "%.1e" NSweeps
+	RunTimes = zeros(Float64, length(NN), 3)
 
 	for (n,N) in enumerate(NN)
 	
@@ -78,7 +89,11 @@ function main()
 		QMatrices = Dict([("Metropolis-Seq=$Sequential", MetropolisQMatrix),
 						  ("Metropolis-Seq=$Sequential-Time", MetropolisElapsedTime), 
 						  ("Heatbath-Seq=$Sequential", HeatbathQMatrix),
-						  ("Heatbath-Seq=$Sequential-Time", HeatbathElapsedTime)])
+						  ("Heatbath-Seq=$Sequential-Time", MetropolisElapsedTime)])
+						  
+		RunTimes[n,:] = [N, MetropolisElapsedTime, HeatbathElapsedTime]
+		@info "Total Metropolis runtime for size $N" MetropolisElapsedTime
+		@info "Total Heatbath runtime for size $N" HeatbathElapsedTime
 
 		for (s,Scheme) in enumerate(["Metropolis", "Heatbath"])
 
@@ -91,9 +106,9 @@ function main()
 			
 			DataFile = open(FilePathOut, "w")
 			write(DataFile, GeneralHeader)
-			write(DataFile, SimBetasHeader)
-			write(DataFile, SimBetasString)
-			write(DataFile, QHeader)
+			write(DataFile, AdditionalHeaders["SimBetas"])
+			write(DataFile, AdditionalHeaders["SimBetasValues"])
+			write(DataFile, AdditionalHeaders["Q"])
 			close(DataFile)
 			
 			open(FilePathOut, "a") do io
@@ -104,85 +119,37 @@ function main()
 		
 		# -------------------------- In-depth analysis -------------------------
 		
-		# TODO Factorize: write an algorithm that can also read data files not
-		# TODO generate them from scratch each time.
-		
 		if DeepAnalysis
-			kMax = 100
-			Bins = -5.5:1.0:5.5 # -5, -4, ..., 4, 5
 			
-			MetropolisQCorrelators = zeros(kMax+1,length(SimBetas))
-			HeatbathQCorrelators = zeros(kMax+1,length(SimBetas))
-			QCorrelators = Dict()
+			RunDeepAnalysis(
+				DirPathOut,
+				NSweepsString,
+				MetropolisQMatrix,	# InputMetroData
+				HeatbathQMatrix,	# InputHeatData
+				SimBetas,
+				100,				# kMax
+				Sequential,
+				AdditionalHeaders
+			)
 			
-			MetropolisQBlockLengths = Any[]
-			HeatbathQBlockLengths = Any[]
-			
-			MetropolisHistogram = Any[]	# TODO SISTEMA (anche linee 134-135)
-			HeatbathHistogram = Any[]	# TODO SISTEMA (anche linee 134-135)
-			QHistograms = Dict()
-			
-			for (sb,SimBeta) in enumerate(SimBetas)
-				for k in 1:kMax+1
-					MetropolisQCorrelators[k,sb] = GetQCorrelator(k, MetropolisQMatrix[:,sb])
-					HeatbathQCorrelators[k,sb] = GetQCorrelator(k, HeatbathQMatrix[:,sb])
-				end
-									
-				MetroQBL = GetQBlockLengths(MetropolisQMatrix[:,sb])
-				push!(MetropolisQBlockLengths, MetroQBL)
-				
-				HeatQBL = GetQBlockLengths(HeatbathQMatrix[:,sb])
-				push!(HeatbathQBlockLengths, HeatQBL)
-			
-				hM = fit(Histogram, MetroQBL, Bins)
-				push!(MetropolisHistogram, [SimBeta, hM.weights, hM.edges])
-				
-				hH = fit(Histogram, HeatQBL, Bins)
-				push!(HeatbathHistogram, [SimBeta, hH.weights, hH.edges])
-			
-			end
-			
-			QCorrelators = Dict([("Metropolis-Seq=$Sequential", MetropolisQCorrelators), 
-								("Heatbath-Seq=$Sequential", HeatbathQCorrelators)])
-			
-			QHistograms = Dict([("Metropolis-Seq=$Sequential", MetropolisHistogram), 
-								 ("Heatbath-Seq=$Sequential", HeatbathHistogram)])
-			
-			for (s,Scheme) in enumerate(["Metropolis", "Heatbath"])
-				mkpath(DirPathOut * "/Q_deep/")
-				
-				# Write correlators on file
-				FilePathOut = DirPathOut * "/Q_deep/$(Scheme)_NSweeps=$(NSweepsString)_QCorrelators.txt"
-				GeneralHeader = "# " * Scheme * ", Sequential=$(Sequential), NSweeps=" * NSweepsString * "\n"
-				
-				DataFile = open(FilePathOut, "w")
-				write(DataFile, GeneralHeader)
-				write(DataFile, SimBetasHeader)
-				write(DataFile, SimBetasString)
-				write(DataFile, QCorrelatorsHeader)
-				close(DataFile)
-				
-				open(FilePathOut, "a") do io
-					M = QCorrelators[Scheme * "-Seq=$Sequential"]
-				    writedlm(io, M, "; ")
-				end
-				
-				# Write binned data on file
-				FilePathOut = DirPathOut * "/Q_deep/$(Scheme)_NSweeps=$(NSweepsString)_QHistograms.txt"
-				GeneralHeader = "# " * Scheme * ", Sequential=$(Sequential), NSweeps=" * NSweepsString * "\n"
-				
-				DataFile = open(FilePathOut, "w")
-				write(DataFile, GeneralHeader)
-				write(DataFile, QHistogramsHeader)
-				close(DataFile)
-				
-				open(FilePathOut, "a") do io
-					M = QHistograms[Scheme * "-Seq=$Sequential"]
-				    writedlm(io, M, "; ")
-				end
-			end
+			println("In-depth analysis completed.")
+
 		end
 	end
+	
+	# ------------------------------ Runtimes plot -----------------------------
+	
+	unicodeplots()
+	p = lineplot(
+		xlabel = "N",
+		ylabel = "Time [s]",
+		xlim = (RunTimes[1,1], RunTimes[end,1]),
+		ylim = (0, maximum(vcat(RunTimes[:,2], RunTimes[:,3]))),
+		title = "Runtimes"
+	)
+	scatterplot!(p, RunTimes[:,1], RunTimes[:,2], color=:red, name="Metropolis", marker=:circle)
+	scatterplot!(p, RunTimes[:,1], RunTimes[:,3], color=:blue, name="Heatbath", marker=:circle)
+	@info "Size-wise runtimes for the following setup" SimBetas[:] NSweeps Sequential p
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
