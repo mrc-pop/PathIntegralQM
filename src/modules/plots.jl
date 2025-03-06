@@ -1,7 +1,7 @@
 #!/usr/bin/julia
 
 """
-Plot the path given by Config.Lattice, including "pacman effect".
+Plot the path given by Config.Lattice, including \"pacman effect\".
 """
 function PlotPath(Config::Configuration; location="nw")
 
@@ -170,4 +170,57 @@ function PlotTailorUpdate!(
     xxNewPlot::Nothing)
     println("No Tailor plot produced, since iEnd is nothing.")
     return
+end
+
+# --------------------------------- Q plots ------------------------------------
+
+function PlotQHistogramsUnicode(
+	FilePathIn::String;
+	Bins=-6.5:1.0:6.5
+)
+	
+	Data = readdlm(FilePathIn, ';', comments=true)
+	SimBetas = Data[1,:]
+	QMatrix = Data[2:end,:]
+	
+	Indices = vcat("Index", [x for x in 1:length(SimBetas)])
+	Values = vcat("SimBeta", SimBetas)
+	UserSelectionMatrix = hcat(Indices, Values)
+	@info "Choose SimBeta to plot (enter index)" UserSelectionMatrix
+	print("Choose index: (Int) ")
+	UserSelection = readline()
+	UserIndex = parse(Int64, UserSelection)
+	SimBeta = SimBetas[UserIndex]
+	
+	h = fit(Histogram, QMatrix[:, UserIndex], Bins)
+	h = normalize(h; mode=:pdf)
+	
+	unicodeplots()
+	# pgfplotsx()
+	
+	
+	xmax = 7
+	xmin = -xmax
+	
+	p = plot(
+		xlabel="Q",
+		ylabel="Normalized occurrencies",
+		title="Q occurrencies density",
+		xlim=(xmin,xmax),
+		ylim=(0,1)
+	)
+	
+	Centers = [(Bins[i]+Bins[i+1])/2 for i in 1:length(Bins)-1]
+	bar!(Centers, h.weights,
+		label="Normalized distribution of Qs", 
+		color=:red)
+	
+	xx = [x for x in xmin:1.0:xmax]
+
+	plot!(p, xx, exp.(-xx.^2 ./ (2*SimBeta)) ./ sqrt(2*pi*SimBeta),
+		label="Theoretical gaussian distribution",
+		color=:blue)
+	
+	@info "Data from: $FilePathIn" p
+	# savefig(p, "tmp.pdf")
 end

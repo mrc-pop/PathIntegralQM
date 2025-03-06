@@ -97,7 +97,7 @@ function MetropolisUpdate!(
     xPrev = Config.Lattice[mod1(Site-1,N)] # 1 ↦ N
 
     xTest = mod(x + Δ * (1 - 2 * rand()), 1)
-	xAvg = (xNext + xPrev)/2
+#	xAvg = (xNext + xPrev)/2
 
     ΔS = 0.5 * η^(-1) * (
         CalculateDistance(xTest, xPrev)^2

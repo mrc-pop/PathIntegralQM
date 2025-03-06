@@ -5,6 +5,7 @@
 using Plots; pgfplotsx()
 using ColorSchemes
 using LaTeXStrings
+using LinearAlgebra
 
 # Get color scheme
 MyColors = ColorSchemes.tab10
