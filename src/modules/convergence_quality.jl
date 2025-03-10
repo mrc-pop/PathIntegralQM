@@ -203,9 +203,10 @@ end
 function GetQCorrelator(k::Int64,
 						QSamples::Vector{Int64})
 	N = length(QSamples)
+	AvgQ = mean(QSamples)
 	QCorrelator = 0
 	for j in 1:N-k
-		QCorrelator += QSamples[j]*QSamples[j+k]
+		QCorrelator += (QSamples[j]-AvgQ) * (QSamples[j+k]-AvgQ)
 	end
 	QCorrelator /= N-k
 	return QCorrelator
@@ -225,4 +226,46 @@ function GetQBlockLengths(QSamples::Vector{Int64})
 		append!(BlockLengths,BlockLength)
 	end
 	return BlockLengths
+end
+
+# ---------------------------- Q  Path processing ------------------------------
+
+function ProcessQDataFilePath(
+	FilePathIn::String
+)
+	
+	# Find directory delimiters "/"
+	DirDelims = findall('/', FilePathIn)
+	
+	# Check if the files was generated sequentially or randomly
+	Sequential = missing
+	SequentialString = FilePathIn[ DirDelims[end-2]+1 : DirDelims[end-1]-1 ]
+	if SequentialString == "sequential"
+		Sequential = true
+	elseif SequentialString == "random"
+		Sequential = false
+	else
+		error("Invalid FilePathIn. Impossible to distinguish sequential/random.")
+	end
+	
+	# Extract N reading the directory name
+	NString = FilePathIn[ DirDelims[end-1]+1 : DirDelims[end]-1 ]
+	N = parse(Int64, NString[3:end])
+	
+	# Extract the scheme reading the file name
+	FileString = FilePathIn[ DirDelims[end]+1 : end ]
+	UnderScoreDelims = findall('_', FileString)
+	Scheme = FileString[ 1 : UnderScoreDelims[1]-1 ]
+	
+	# Extract NSweeps reading the file name
+	if length(UnderScoreDelims)==1
+		NSweepsString = FileString[ UnderScoreDelims[1]+9 : end-4 ]
+		NSweeps = Int64(parse(Float64, NSweepsString))
+	elseif length(UnderScoreDelims)==2
+		NSweepsString = FileString[ UnderScoreDelims[1]+9 : UnderScoreDelims[2]-1 ]
+		NSweeps = Int64(parse(Float64, NSweepsString))
+	end
+		
+	return Sequential, N, Scheme, NSweeps
+
 end

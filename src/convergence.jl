@@ -71,15 +71,24 @@ function main()
 	NSweepsString = @sprintf "%.1e" NSweeps
 	RunTimes = zeros(Float64, length(NN), 3)
 
+	if Sequential
+		DirPathOut = PROJECT_ROOT * "/../convergence/sequential/"
+	elseif !Sequential
+		DirPathOut = PROJECT_ROOT * "/../convergence/random/"
+	end
+
+	TmpDirPathOut = DirPathOut
+
 	for (n,N) in enumerate(NN)
 	
 		QStep = QSteps[n]
 	
 		if Sequential
-			DirPathOut = PROJECT_ROOT * "/../convergence/sequential/N=$(N)/"
+			DirPathOut = TmpDirPathOut * "/N=$(N)/"
 		elseif !Sequential
-			DirPathOut = PROJECT_ROOT * "/../convergence/random/N=$(N)/"
+			DirPathOut = TmpDirPathOut * "/N=$(N)/"
 		end
+		
 		mkpath(DirPathOut)
 
 		println()
@@ -149,16 +158,19 @@ function main()
 	)
 	scatterplot!(p, RunTimes[:,1], RunTimes[:,2], color=:red, name="Metropolis", marker=:circle)
 	scatterplot!(p, RunTimes[:,1], RunTimes[:,3], color=:blue, name="Heatbath", marker=:circle)
-	@info "Size-wise runtimes for the following setup" SimBetas[:] NSweeps Sequential p
+	@info "Size-wise runtimes for the following setup" SimBetas NSweeps Sequential p
 
-	FilePathOut = DirPathOut * "/../RunTimes_NSweeps=" * NSweepsString * ".txt"
-	GeneralHeader = "# N; Metropolis-Seq=" * Sequential * "; Heatbath-Seq=" * Sequential
-	
-	DataFile = open(FilePathOut, "w")
-	write(DataFile, GeneralHeader)
-	open(FilePathOut, "a") do io
-        writedlm(io, RunTimes, "; ")
-    end
+	if DeepAnalysis
+		FilePathOut = DirPathOut * "/../RunTimes_NSweeps=" * NSweepsString * ".txt"
+		GeneralHeader = "# N; Metropolis-Seq=$(Sequential); Heatbath-Seq=$(Sequential)\n"
+		
+		DataFile = open(FilePathOut, "w")
+		write(DataFile, GeneralHeader)
+		close(DataFile)
+		open(FilePathOut, "a") do io
+		    writedlm(io, RunTimes, "; ")
+		end
+	end
 	
 end
 

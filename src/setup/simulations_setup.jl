@@ -4,9 +4,19 @@
 # determined using the other scripts
 
 """MODEL SETTINGS"""
-const NN = [50, 75, 100, 125, 150, 175, 200, 300, 400]
+const NN = [50, 400]
+const SimBetas = vcat(0.1, [x for x in 0.5:0.5:10.0])
 
-const SimBetas = [2.0]
+"""
+const NN = [25, 50, 75, 100,
+            125, 150, 175, 200,
+            300, 400]			            # Number of lattice points
+
+const SimBetas = [0.01, 0.025, 0.05, 0.075,
+				  0.1, 0.25, 0.5, 0.75,
+				  1.0, 2.5, 5.0, 7.5,
+				  10.0]          			# Adimensional inverse temperature
+"""
 
 """ALGORITHM SETTINGS"""
 const Heatbath = false          			# Type of local algorithm (false → Metropolis)

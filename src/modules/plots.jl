@@ -172,55 +172,333 @@ function PlotTailorUpdate!(
     return
 end
 
-# --------------------------------- Q plots ------------------------------------
+# ------------------------------ Q histograms ----------------------------------
 
 function PlotQHistogramsUnicode(
 	FilePathIn::String;
 	Bins=-6.5:1.0:6.5
 )
+
+	Sequential, N, Scheme, NSweeps = ProcessQDataFilePath(FilePathIn)
 	
+	@info "Loading data."	
+	Data = readdlm(FilePathIn, ';', comments=true)
+	SimBetas = Data[1,:]
+	QMatrix = Data[2:end,:]
+	@info "Data loaded."
+	
+	Indices = vcat("Index", [x for x in 1:length(SimBetas)], 0)
+	Values = vcat("SimBeta", SimBetas, "Exit")
+	UserSelectionMatrix = hcat(Indices, Values)
+	Repeat = true
+	
+	while Repeat
+		@info "Choose SimBeta to plot (enter index)" UserSelectionMatrix
+		print("Choose index: (Int) ")
+		UserSelection = readline()
+		UserIndex = parse(Int64, UserSelection)
+		SimBeta = SimBetas[UserIndex]
+		
+		h = fit(Histogram, QMatrix[:, UserIndex], Bins)
+		h = normalize(h; mode=:pdf)
+		
+		unicodeplots()
+		# pgfplotsx()
+		
+		xmax = 7
+		xmin = -xmax
+		
+		p = plot(
+			xlabel="Q",
+			ylabel="Normalized occurrencies",
+			title="Q pdf; N=$N; SimBeta=$SimBeta",
+			xlim=(xmin,xmax),
+			ylim=(0,1)
+		)
+		
+		Centers = [(Bins[i]+Bins[i+1])/2 for i in 1:length(Bins)-1]
+		bar!(Centers, h.weights,
+			label="Normalized distribution of Qs", 
+			color=:red)
+		
+		xx = [x for x in xmin:0.1:xmax]
+
+		plot!(p, xx, exp.(-xx.^2 ./ (2*SimBeta)) ./ sqrt(2*pi*SimBeta),
+			label="Theoretical gaussian distribution",
+			color=:blue)
+		
+		@info "Data from: $FilePathIn" p
+		# savefig(p, "tmp.pdf")
+		
+		print("Would you like to plot another? (y/n) ")
+		UserRepeat = readline()
+		Waiting = true
+		
+		while Waiting
+			if UserRepeat == "y"
+				Waiting = false
+				Repeat = true
+			elseif UserRepeat == "n"
+				Waiting = false
+				Repeat = false
+				println("Exiting.")
+			else
+				Waiting = true
+				print("Invalid input. Please use y or n to answer. Would you like to plot another? (y/n) ")
+			end
+		end
+	end
+end
+
+function PlotQHistograms(
+	FilePathIn::String,
+	Indices::Vector{Int64};
+	Bins=-6.5:1.0:6.5
+)
+
+	Sequential, N, Scheme, NSweeps = ProcessQDataFilePath(FilePathIn)
+	
+	@info "Loading data" Scheme Sequential N NSweeps
 	Data = readdlm(FilePathIn, ';', comments=true)
 	SimBetas = Data[1,:]
 	QMatrix = Data[2:end,:]
 	
-	Indices = vcat("Index", [x for x in 1:length(SimBetas)])
-	Values = vcat("SimBeta", SimBetas)
-	UserSelectionMatrix = hcat(Indices, Values)
-	@info "Choose SimBeta to plot (enter index)" UserSelectionMatrix
-	print("Choose index: (Int) ")
-	UserSelection = readline()
-	UserIndex = parse(Int64, UserSelection)
-	SimBeta = SimBetas[UserIndex]
+	for Index in Indices
 	
-	h = fit(Histogram, QMatrix[:, UserIndex], Bins)
-	h = normalize(h; mode=:pdf)
+		SimBeta = SimBetas[Index]
+		
+		h = fit(Histogram, QMatrix[:, Index], Bins)
+		h = normalize(h; mode=:pdf)
+		
+		pgfplotsx()
+		
+		xmax = 7
+		xmin = -xmax
+		
+		p = plot(
+			xlabel=L"$Q$",
+			ylabel="Normalized occurrencies",
+			title=L"$Q$ pdf ($N=%$N$, $\tilde{\beta}=%$SimBeta$)",
+			xlim=(xmin,xmax),
+			ylim=(0,1)
+		)
+		
+		Centers = [(Bins[i]+Bins[i+1])/2 for i in 1:length(Bins)-1]
+		bar!(Centers, h.weights,
+			label=L"$Q$ pdf", 
+			color=:red)
+		
+		xx = [x for x in xmin:0.1:xmax]
+
+		plot!(p, xx, exp.(-xx.^2 ./ (2*SimBeta)) ./ sqrt(2*pi*SimBeta),
+			label="Theory",
+			color=:blue)
+		
+		FilePathOut = FilePathIn[1:end-4] * "_SimBeta=$(SimBeta).pdf"
+		savefig(p, FilePathOut)
+	end
+end
+
+function PlotQHistogramsCompared(
+	DirPathIn::String, # Up to /convergence/
+	SimBeta::Float64,
+	N::Int64,
+	NSweeps::Int64;
+	Bins=-6.5:1.0:6.5,
+	BarWidth = 0.2
+)
+
+	Schemes = ["Metropolis", "Heatbath"]
+	Modes = ["sequential", "random"]
+
+	NSweepsString = @sprintf "%.1e" NSweeps
+	Histograms = Any[]
+	Labels = ["MS", "MR", "HS", "HR"]
+
+	for (s,Scheme) in enumerate(Schemes)
+		for (m,Mode) in enumerate(Modes)
+			FilePathIn = DirPathIn *
+				"/" * Mode *
+				"/N=$N/" *
+				Scheme *
+				"_NSweeps=" * NSweepsString *
+				".txt"
+				
+			@info "Loading data" Scheme Mode N NSweeps SimBeta	
+			Data = readdlm(FilePathIn, ';', comments=true)
+			SimBetas = Data[1,:]
+			QMatrix = Data[2:end,:]
+			
+			Index = findall(x->x==SimBeta, SimBetas)
+			h = fit(Histogram, vec(QMatrix[:, Index]), Bins)
+			h = normalize(h; mode=:pdf)
+			push!(Histograms, [h, Labels[2*(s-1)+m]])
+		end
+	end
 	
-	unicodeplots()
-	# pgfplotsx()
+	Edges = [x for x in Bins]
+	Centers = [round( (Edges[i+1]+Edges[i])/2, digits=2 ) for i in 1:length(Edges)-1]
 	
+	pgfplotsx()
 	
 	xmax = 7
 	xmin = -xmax
 	
 	p = plot(
-		xlabel="Q",
+		xlabel=L"$Q$",
 		ylabel="Normalized occurrencies",
-		title="Q occurrencies density",
+		title=L"$Q$ pdf ($N=%$N$, $\tilde{\beta}=%$SimBeta$)",
 		xlim=(xmin,xmax),
-		ylim=(0,1)
+		ylim=(0,1),
+		xticks=-6:1:6,
+		minorticks=false,
+		legend=:topright
 	)
 	
-	Centers = [(Bins[i]+Bins[i+1])/2 for i in 1:length(Bins)-1]
-	bar!(Centers, h.weights,
-		label="Normalized distribution of Qs", 
-		color=:red)
+	for (i,k) in enumerate([1.5, 0.5, -0.5, -1.5])	# Inverted sequence
+		bar!(
+			Centers.-k*BarWidth, Histograms[i][1].weights,
+			bar_width=BarWidth,
+			color=MyColors[2*i],
+			label=Histograms[i][2]
+		)
+	end
 	
-	xx = [x for x in xmin:1.0:xmax]
+	xx = [x for x in xmin:0.1:xmax]
 
 	plot!(p, xx, exp.(-xx.^2 ./ (2*SimBeta)) ./ sqrt(2*pi*SimBeta),
-		label="Theoretical gaussian distribution",
+		label="Theory",
 		color=:blue)
 	
-	@info "Data from: $FilePathIn" p
-	# savefig(p, "tmp.pdf")
+	DirPathOut = DirPathIn * "/convergence_plots/QHistograms_compared"
+	mkpath(DirPathOut)
+	FilePathOut = DirPathOut * 
+		"/N=$(N)" *
+		"_NSweeps=" * NSweepsString *
+		"_SimBeta=$(SimBeta).pdf"
+	savefig(p, FilePathOut)
+end
+
+# -------------------------------- Q correlators -------------------------------
+
+function PlotQCorrelators(
+	DirPathIn::String,
+	SimBeta::Float64,
+	N::Int64,
+	NSweeps::Int64;
+	Skip=4
+)
+
+	NSweepsString = @sprintf "%.1e" NSweeps
+
+	Schemes = ["Metropolis", "Heatbath"]
+	Modes = ["sequential", "random"]
+	Labels = ["MS", "MR", "HS", "HR"]
+	
+	p = plot(
+		xlabel=L"$k$",
+		ylabel=L"$C_Q(k)$",
+		title=L"$Q$ correlator for different schemes ($N=%$N$)",
+		legend=:topright
+	)
+	
+	for (s,Scheme) in enumerate(Schemes)
+		for (m,Mode) in enumerate(Modes)
+			FilePathIn = DirPathIn *
+				"/" * Mode *
+				"/N=$N/Q_deep/" *
+				Scheme *
+				"_NSweeps=" * NSweepsString *
+				"_QCorrelators.txt"
+				
+			@info "Loading data" Scheme Mode N NSweeps
+			Data = readdlm(FilePathIn, ';', comments=true)
+			SimBetas = Data[1,:]
+			CMatrix = Data[2:Skip:end,:]
+
+			Index = findall(x->x==SimBeta, SimBetas)
+			CC = CMatrix[:, Index]
+			kk = 1:Skip:(size(Data,1)-1)			
+			
+			plot!(p, kk,  CC,
+				label=Labels[2*(s-1)+m],
+				markershape=:circle,
+				markersize=1.5,
+				linewidth=0.5,
+				color=MyColors[2*(2*(s-1)+m)])	
+		end
+	end
+	
+	DirPathOut = DirPathIn * "/convergence_plots/QCorrelators"
+	mkpath(DirPathOut)
+	FilePathOut = DirPathOut * 
+		"/N=$(N)_NSweeps=" * NSweepsString	* "_SimBeta=$SimBeta.pdf"
+	savefig(p, FilePathOut)
+	
+end
+
+# ---------------------------------- Q blocks ----------------------------------
+
+function PlotQBlocksHistograms(
+	FilePathIn::String
+)
+
+end
+
+# --------------------------------- Q variance ---------------------------------
+
+function PlotQVarianceSimBeta(
+	DirPathIn::String,
+	N::Int64,
+	NSweeps::Int64
+)
+
+	NSweepsString = @sprintf "%.1e" NSweeps
+
+	Schemes = ["Metropolis", "Heatbath"]
+	Modes = ["sequential", "random"]
+	Labels = ["MS", "MR", "HS", "HR"]
+	
+	p = plot(
+		xlabel=L"$\tilde{\beta}$",
+		ylabel=L"$\langle Q^2 \rangle$",
+		title=L"$\sigma_Q (\tilde{\beta})$ for different local schemes ($N=%$N$)",
+		legend=:topleft
+	)
+	
+	for (s,Scheme) in enumerate(Schemes)
+		for (m,Mode) in enumerate(Modes)
+			FilePathIn = DirPathIn *
+				"/" * Mode *
+				"/N=$N/" *
+				Scheme *
+				"_NSweeps=" * NSweepsString *
+				".txt"
+				
+			@info "Loading data" Scheme Mode N NSweeps
+			Data = readdlm(FilePathIn, ';', comments=true)
+			SimBetas = Data[1,:]
+			QMatrix = Data[2:end,:]
+
+			QQ = zeros(length(SimBetas),2)
+			for (sb, SimBeta) in enumerate(SimBetas)
+				QQ[sb,1] = mean(QMatrix[:,sb].^2)
+				QQ[sb,2] = std(QMatrix[:,sb].^2)
+			end
+			
+			plot!(p, SimBetas,  QQ[:,1],
+				label=Labels[2*(s-1)+m],
+				markershape=:circle,
+				markersize=1.5,
+				linewidth=0.5,
+				color=MyColors[2*(2*(s-1)+m)])	
+		end
+	end
+	
+	DirPathOut = DirPathIn * "/convergence_plots/QVariances_SimBeta"
+	mkpath(DirPathOut)
+	FilePathOut = DirPathOut * 
+		"/N=$(N)_NSweeps=" * NSweepsString	* ".pdf"
+	savefig(p, FilePathOut)
+	
 end
