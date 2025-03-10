@@ -98,7 +98,7 @@ function main()
 		for (s,Scheme) in enumerate(["Metropolis", "Heatbath"])
 
 			ElapsedTime = QMatrices[Scheme * "-Seq=$Sequential-Time"]
-			FilePathOut = DirPathOut * "/$(Scheme)_NSweeps=$(NSweepsString).txt"
+			FilePathOut = DirPathOut * "/$(Scheme)_NSweeps=" * NSweepsString * ".txt"
 			GeneralHeader = "# " * Scheme *
 							", Sequential=$(Sequential)," *
 							" NSweeps=" * NSweepsString *
@@ -150,6 +150,16 @@ function main()
 	scatterplot!(p, RunTimes[:,1], RunTimes[:,2], color=:red, name="Metropolis", marker=:circle)
 	scatterplot!(p, RunTimes[:,1], RunTimes[:,3], color=:blue, name="Heatbath", marker=:circle)
 	@info "Size-wise runtimes for the following setup" SimBetas[:] NSweeps Sequential p
+
+	FilePathOut = DirPathOut * "/../RunTimes_NSweeps=" * NSweepsString * ".txt"
+	GeneralHeader = "# N; Metropolis-Seq=" * Sequential * "; Heatbath-Seq=" * Sequential
+	
+	DataFile = open(FilePathOut, "w")
+	write(DataFile, GeneralHeader)
+	open(FilePathOut, "a") do io
+        writedlm(io, RunTimes, "; ")
+    end
+	
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__

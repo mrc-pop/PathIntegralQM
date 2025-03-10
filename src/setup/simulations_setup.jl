@@ -22,6 +22,6 @@ const ε_over_η = 0.2            			# Tolerance of tailor update in units of η
 const QSteps = 10 .* NN # fill(,length(NN)) # How often to compute Q, for each N (0 = never, 1=always, n=after n-1 steps)
 
 """PARALLEL TEMPERING SETTINGS"""
-const NR = 1                                # number of systems to be simulated in parallel
-const Ratio = 1.2                           # ratio between the η of successive systems.
-const SwapStep = 50                         # how often to propose an exchange
+const NR = 1                                # Number of systems to be simulated in parallel
+const Ratio = 1.2                           # Ratio between the η of successive systems.
+const SwapStep = 50                         # How often to propose an exchange
