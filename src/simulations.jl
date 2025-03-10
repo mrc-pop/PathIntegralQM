@@ -46,8 +46,8 @@ function main()
         ε = ε_over_η * Config.Eta
         Counter = 0
         CounterTailor = [0, 0, 0]
-        Δcustom = sqrt(Config.Eta)
-        @info AlgoName*" settings" Heatbath Δcustom Sequential NSweepsTherm NSweeps
+
+        @info AlgoName*" settings" Heatbath Δ Sequential NSweepsTherm NSweeps
 
         # Thermalization
         println("\nPerforming $NSweepsTherm " * AlgoName * " sweeps for thermalization...")
@@ -62,7 +62,7 @@ function main()
                 end
                 # Perform update
                 if Heatbath == false
-                    MetropolisUpdate!(Config, Site; Δ=Δcustom)
+                    MetropolisUpdate!(Config, Site; Δ)
                 else
                     HeatBathUpdate!(Config, Site)
                 end
@@ -101,7 +101,7 @@ function main()
 
                 # Perform update
                 if Heatbath == false
-                    Accepted = MetropolisUpdate!(Config, Site; Δ=Δcustom)
+                    Accepted = MetropolisUpdate!(Config, Site)
                     Counter += Accepted
                     Site = mod1(Site+1, N)
                 else

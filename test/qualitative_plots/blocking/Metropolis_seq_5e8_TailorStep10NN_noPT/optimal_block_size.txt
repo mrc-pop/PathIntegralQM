@@ -1,0 +1,11 @@
+# Dimensione ottimale blocchi, metropolis 50e8, seq, TailorSteps=10NN, no PT
+# N, k_opt
+50, 1
+75, 10
+100, 25
+125, 50
+150, 100
+175, 100
+200, 100
+300, 500
+400, 500

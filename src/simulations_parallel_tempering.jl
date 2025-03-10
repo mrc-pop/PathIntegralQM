@@ -2,7 +2,7 @@
 
 using DelimitedFiles
 using Dates
-using UnicodePlots
+# using UnicodePlots
 
 PROJECT_ROOT = @__DIR__
 include(PROJECT_ROOT * "/setup/graphic_setup.jl")
@@ -11,11 +11,15 @@ include(PROJECT_ROOT * "/modules/processing.jl")
 include(PROJECT_ROOT * "/modules/plots.jl")
 include(PROJECT_ROOT * "/setup/simulations_setup.jl")
 
+const NR = 1 # number of systems to be simulated in parallel
+const Ratio = 1.4 # ratio between the η of successive systems.
+const SwapStep = 20 # how often to propose an exchange
+
 """
 Simulation file with parallel tempering. The settings are imported from /setup/simulations_setup.jl
 """
 
-function main()
+function PTRoutine(NR, Ratio, SwapStep, FolderOut)
 
     println()
 
@@ -31,8 +35,7 @@ function main()
         @info "Tailor settings" TailorStep ε_over_η
 
         # Prepare file and write header
-        FolderOut = PROJECT_ROOT * "/../simulations/N=$N/"
-        FilePathOut = FolderOut * "SimBeta=$SimBeta.txt"
+        FilePathOut = FolderOut * "N=$N/SimBeta=$SimBeta.txt"
         mkpath(dirname(FilePathOut))
         open(FilePathOut, "w") do io
             write(io, "# Δ=$Δ Sequential=$Sequential NSweepsTherm=$NSweepsTherm\n")
@@ -48,20 +51,18 @@ function main()
         εParallel = ε_over_η .* EtasParallel
         CountersParallel = [0 for _ in 1:NR]
         CountersTailor = [[0, 0, 0] for _ in 1:NR]
-        CounterExchanges = fill(0, NR) # in position NR, total number of proposed swaps
 
+        @info "Parallel tempering settings" NR Ratio SimBetasParallel[end] SwapStep
 
-        @info "Biggest β and η used" SimBetasParallel[end] EtasParallel[end]
-
-        # # TODO bring back thermalization
+        # TODO bring back thermalization
         # println("\n Instead of thermalization, I am using random initial lattices!")
         # for r in 1:NR
         #     Config = Configs[r]
         #     Config.Lattice .= [rand() for _ in 1:N]
         # end
-        # println("Initial Q for r=1 , ..., NR: $(CalculateQ.(Configs))")
+        # println("Initial Qs, $(CalculateQ.(Configs))")
 
-        @info "Initial r=1 configuration" PlotPathUnicode(Configs[1])
+        # @info PlotPathUnicode(Configs[1])
 
         # Local update sweeps
         println("\nPerforming $NSweeps "* AlgoName * " sweeps of the whole lattice...")
@@ -115,18 +116,15 @@ function main()
                 # Every SwapStep updates, perform an exchange.
                 if mod(CurrentMetroSteps + j, SwapStep) == 0
                     if rand() < 0.5
-                        for r in 1:NR-1
-                            # println("\nProposing update between $r and $(r+1)...")
+                        for r in 1:(NR-1)
+                            #println("\nProposing update between $r and $(r+1)...")
                             Acc = ParallelTemperingUpdate!(Configs[r], Configs[r+1]; verbose=false)
-                            CounterExchanges[r] += Acc
-                            CounterExchanges[NR] += 1
                         end
+
                     else
                         for r in NR:-1:2 # go down from NR to 2
-                            # println("\nProposing update between $r and $(r-1)...")
+                            #println("\nProposing update between $r and $(r-1)...")
                             Acc = ParallelTemperingUpdate!(Configs[r], Configs[r-1]; verbose=false)
-                            CounterExchanges[r-1] += Acc
-                            CounterExchanges[NR] += 1
                         end
                     end
                 end
@@ -144,7 +142,7 @@ function main()
         # Ensure we only save the measured values
         QQ = QQ[1:MeasureCount]
 
-        printstyled("\nAverage of Q² over $MeasureCount measurements: $(mean(QQ.^2))\n", color=:yellow)
+        printstyled("\nAverage of Q²: $(mean(QQ.^2))\n", color=:yellow)
 
         # Save QQ on file by appending
         open(FilePathOut, "a") do io
@@ -164,14 +162,9 @@ function main()
             println("  Fraction of times iEnd was found: $FoundTRatio; "*
                 "out of these, acceptance was $AccTRatio.")
         end
-
-
-        println("\nExchanges proposed: $(CounterExchanges[NR]), accepted $(sum(CounterExchanges[1:NR-1])) " *
-        "(acceptance $( round(sum(CounterExchanges[1:NR-1])/(CounterExchanges[NR]),digits=3) )).")
-        println("Exchanges r <-> r+1 accepted: $(CounterExchanges[1:NR-1])")
     end
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
-    main()
+    PTRoutine(NR, Ratio, SwapStep, PROJECT_ROOT * "/../simulations/")
 end

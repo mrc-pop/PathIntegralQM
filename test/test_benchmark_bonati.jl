@@ -17,7 +17,7 @@ const NN = [10, 12]
 const NSweepsTherm = Int(1e2)
 const NSweeps = Int(1e8)
 const Δ = 0.5
-const sequential = true
+const Sequential = true
 
 const TailorStep = 20
 const ε = 0.01
@@ -28,7 +28,7 @@ function main()
 
     for N in NN
         printstyled("\nWorking on N=$N", color=:yellow)
-        println("\nAlgorithm settings: Δ=$Δ, sequential=$sequential.")
+        println("\nAlgorithm settings: Δ=$Δ, Sequential=$Sequential.")
         TailorStep !== 0 && println("Tailor update every $TailorStep metro updates.")
 
         # Initialize lattice and counters
@@ -39,7 +39,7 @@ function main()
         # Thermalization
         println("\nPerforming $NSweepsTherm Metropolis sweeps for thermalization...")
         for i in 1:(NSweepsTherm*N)
-            if sequential
+            if Sequential
                 Site = (i-1) % (N-2) + 2
             else
                 Site = rand(2:N-1)
@@ -61,7 +61,7 @@ function main()
             # Sweep over lattice
             for j in 1:N
 
-                if sequential
+                if Sequential
                     Site = (j-1) % (N-2) + 2
                 else
                     Site = rand(2:N-1)

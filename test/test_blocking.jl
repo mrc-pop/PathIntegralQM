@@ -16,7 +16,10 @@ Code to find the optimal block length.
 include(PROJECT_ROOT * "/../src/setup/simulations_setup.jl")
 
 # Define custom block sizes variable
-const BlockSizes = [1,5,10,15,20,40,60,80,100,200,300,400]
+const BlockSizes = vcat(1, 5:5:20, 40:20:100, 150:50:300, 400:100:1000)
+const NNBlock = NN
+# [1, 4, 8, 16, 32, 64, 96, 128, 256, 512, 600, 700, 800, 900, 1024]
+# [2^k for k in 0:11]
 
 function main()
 
@@ -24,7 +27,7 @@ function main()
 
         plot()
 
-        @time for N in NN
+        @time for N in NNBlock
 
             FilePathIn = PROJECT_ROOT * "/../simulations/N=$N/SimBeta=$SimBeta.txt"
             QQ = readdlm(FilePathIn, '\n', Int64; comments=true)
@@ -37,17 +40,17 @@ function main()
             ErrorsQ = fill(0.0, length(BlockSizes))
             ErrorsQ2 = fill(0.0, length(BlockSizes))
 
-            for (i,k) in enumerate(BlockSizes)
+            @time for (i,k) in enumerate(BlockSizes)
                 @info "Blocking Q and Q² with k=$k, number of blocks: $(round(Int64, length(QQ)/k))"
                 _, ErrorsQ[i], _, ErrorsQ2[i] = BlockQ(QQ, k)
             end
 
-            plot!(BlockSizes, ErrorsQ2, xlabel=L"$k$", ylabel=L"$\sigma_{Q^2}$",
-                title=L"$\tilde \beta = %$(round(SimBeta, digits=2)),
-                    N_\mathrm{sweeps} = 10^8$", label=L"$N=%$N$")
+            plot!(BlockSizes, ErrorsQ2, xlabel=L"k", ylabel=L"\sigma_{Q^2}",
+            title=L"$\tilde\beta = %$SimBeta$", label=L"N=%$N")
         end
 
-        savefig(PROJECT_ROOT*"/qualitative_plots/blocking_NN=$(NN)_SimBeta=$SimBeta.pdf")
+        savefig(PROJECT_ROOT*"/qualitative_plots/blocking/blocking_NN=$(NNBlock)_SimBeta=$SimBeta.pdf")
+        println("Saved figure to /qualitative_plots/blocking/blocking_NN=$(NNBlock)_SimBeta=$SimBeta.pdf")
     end
 end
 

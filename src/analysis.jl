@@ -9,11 +9,34 @@ include(PROJECT_ROOT * "/../src/setup/graphic_setup.jl")
 include(PROJECT_ROOT * "/../src/setup/simulations_setup.jl")
 include(PROJECT_ROOT * "/../src/modules/processing.jl")
 
-const kk = round.(Int, 0.25 .* NN.^2 ./ 1)   # block length. TODO CHANGE & check
-                                             # 0.5*N^2 was the empirical one I found
-                                             # when measuring each time; with the local update
-const scan = false # scan all available N
-const makehist = true # plot Histogram
+const LengthsBlockSizes = Dict( # see txt file
+    # N => k
+    50 => 1,
+    75 => 10,
+    100 => 25,
+    125 => 50,
+    150 => 100,
+    175 => 100,
+    200 => 100,
+    300 => 500,
+    400 => 500
+)
+# const LengthsBlockSizes = Dict(
+#     # N => k
+#     50 => 1000,
+#     75 => 1000,
+#     100 => 1000,
+#     125 => 1000,
+#     150 => 1000,
+#     175 => 1000,
+#     200 => 1000,
+#     300 => 1000,
+#     400 => 10000
+# )
+
+
+const Scan = false          # Scan all available N # TODO remove
+const MakeHist = false      # plot Histogram
 
 function main()
     if length(ARGS) != 1
@@ -21,11 +44,15 @@ function main()
         return
     end
 
+    # Define kk as the values of LengthsBlockSizes
+    kk = collect(values(LengthsBlockSizes))
+    Sizes = collect(keys(LengthsBlockSizes))
+
     SimBeta = parse(Float64, ARGS[1])
 
-    @info "Analysis parameters" SimBeta kk
+    @info "Analysis parameters" SimBeta LengthsBlockSizes Scan
 
-    if scan
+    if Scan
         # Scan /simulations directory and find all available N
         NNScan = Int64[]
         SimDir = PROJECT_ROOT * "/../simulations/"
@@ -53,9 +80,12 @@ function main()
     Q2Errors = Float64[]
     ττ = Float64[]
 
-    Sizes = scan ? NNScan : NN
+    Sizes = Scan ? NNScan : Sizes
 
     for (SizeIndex, N) in enumerate(Sizes)
+
+        @info "Performing blocking on N=$N..."
+
         FilePath = PROJECT_ROOT * "/../simulations/N=$N/SimBeta=$SimBeta.txt"
 
         if !isfile(FilePath)
@@ -66,7 +96,7 @@ function main()
         # Read and process data
         QQ = readdlm(FilePath, '\n', Int64; comments=true)
 
-        if makehist
+        if MakeHist
             println("Unique Q values for N=$N, $(unique(QQ))")
             # Histogram plot
             mkpath(PROJECT_ROOT * "/../analysis/SimBeta=$SimBeta/hist/", )
@@ -95,69 +125,84 @@ function main()
 
     RelErrorQ2 = Q2Errors ./ Q2Means
 
+    println()
+
     @info "Relative error on Q²", RelErrorQ2
     @info "Tau values", ττ
 
+    println()
+
     mkpath(PROJECT_ROOT * "/../analysis/SimBeta=$SimBeta/", )
 
+    # Plot name
+    if TailorSteps[1] == TailorSteps[end]
+        TS = "TailorSteps=$(TailorSteps[1])"
+    else
+        TS = "TailorSteps=$((TailorSteps./NN)[end])NN"
+    end
+
+    if NR !== 1
+        PT = "NR_$NR"
+    end
+
     # Create plot
-    p = scatter(NN, Q2Means,
+    p = scatter(Sizes, Q2Means,
             title=L"\tilde\beta = %$SimBeta",
             markersize=2,
             yerror=Q2Errors,
             xlabel=L"N",
             ylabel=L"\langle Q^2 \rangle",
-            label="Data")
+            label=:none
+        )
 
     # Add theoretical line
     if SimBeta > 1.0
         hline!([SimBeta],
-            label=L"$\tilde\beta$",
+            label=:none,#L"$\tilde\beta$",
             color="gray",
             linestyle=:dash)
     elseif SimBeta < 0.5
         hline!([exp(-1 / (2*SimBeta))],
-            label=L"$\exp(-1/2\tilde\beta)$",
+            label=:none,#L"$\exp(-1/2\tilde\beta)$",
             color="gray",
             linestyle=:dash)
     end
 
     # Save plot
-    savefig(p, PROJECT_ROOT * "/../analysis/SimBeta=$SimBeta/Q2_vs_N_SimBeta=$SimBeta.pdf")
-    println("Plot saved as SimBeta=$SimBeta/Q2_vs_N_SimBeta=$SimBeta.pdf")
+    savefig(p, PROJECT_ROOT * "/../analysis/SimBeta=$SimBeta/Q2_vs_N_SimBeta=$(SimBeta)_"*TS*"_NR=$NR.pdf")
+    println("Plot saved as SimBeta=$SimBeta/Q2_vs_N_SimBeta=$(SimBeta)_"*TS*"_NR=$NR.pdf")
 
     # Create plot of Q vs NN
-    p2 = scatter(NN, QMeans,
+    p2 = scatter(Sizes, QMeans,
             title=L"\tilde\beta = %$SimBeta",
             markersize=2,
             yerror=QErrors,
             xlabel=L"N",
             ylabel=L"\langle Q \rangle",
-            label="Data")
+            label=:none)
     hline!([0.0],
             label=:none,
             color="gray",
             linestyle=:dash)
     # Save plot
-    savefig(p2, PROJECT_ROOT * "/../analysis/SimBeta=$SimBeta/Q_vs_N_SimBeta=$SimBeta.pdf")
-    println("Plot saved as SimBeta=$SimBeta/Q_vs_N_SimBeta=$SimBeta.pdf")
+    savefig(p2, PROJECT_ROOT * "/../analysis/SimBeta=$SimBeta/Q_vs_N_SimBeta=$(SimBeta)_"*TS*"_NR=$NR.pdf")
+    println("Plot saved as SimBeta=$SimBeta/Q_vs_N_SimBeta=$(SimBeta)_"*TS*"_NR=$NR.pdf")
 
 
     # Using the formula Var(Q²) = (1 + 2 [τ_(Q²)]) Var(Q²)_{Naive}, calculate the autocorrelation time
     # for the observable Q². Var(Q²)_{Naive} is the one estimated with std() and without blocking.
     # cfr. Eq. (4.1.33) lecture notes
-    q = scatter(NN, ττ,
+    q = scatter(Sizes, ττ,
             title=L"\tilde\beta = %$SimBeta",
             markersize=2,
             #yerror=Q2Errors,
-            yscale=:log10,
+            #yscale=:log10,
             xlabel=L"N",
             ylabel=L"\tau",
-            label="Data")
+            label=:none)
 
-    # Save plot
-    savefig(q, PROJECT_ROOT * "/../analysis/SimBeta=$SimBeta/tau_vs_N_SimBeta=$SimBeta.pdf")
-    println("Plot saved as SimBeta=$SimBeta/tau_vs_N_SimBeta=$SimBeta.pdf")
+    savefig(q, PROJECT_ROOT * "/../analysis/SimBeta=$SimBeta/tau_vs_N_SimBeta=$(SimBeta)_"*TS*"_NR=$NR.pdf")
+    println("Plot saved as SimBeta=$SimBeta/tau_vs_N_SimBeta=$(SimBeta)_"*TS*"_NR=$NR.pdf")
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__
