@@ -5,34 +5,37 @@ Code to determine the optimal value of SimBeta_max = (Ratio)^(NR-1) * SimBeta fo
 the system with parallel tempering. Simulation settings are NOT imported from other scripts.
 """
 
+using Printf
 include(joinpath(@__DIR__, "../src/simulations_parallel_tempering.jl"))
 
 PROJECT_ROOT = @__DIR__
 
 const NN = [300]
-const SimBeta = 2.0
+const SimBetas = [2.0]
+const SimBeta = SimBetas[1]
 
 const Heatbath = false
 # const NSweepsTherm = Int(1e2)
-const NSweeps = Int(5e6)
+const NSweeps = Int(1e6)
 const Δ = 0.5
 const Sequential = true
 
 const TailorSteps = round.(0.0 .* NN)
 const ε_over_η = 0.2
 
-const QSteps = 1 .* NN
+const MeasureEvery = 1 .* NN
 
 """PT settings."""
-const NR = 10
-const Ratios = 1.02:0.02:1.20 #[1.012, 1.025, 1.05, 1.075, 1.1] # CHANGE! # 1.01:0.01:1.08
-const SwapStep = 50
+const NR = 5
+const Ratios = [1.02, 1.03, 1.04, 1.05, 1.06, 1.08, 1.10, 1.14, 1.16, 1.18] #[1.012, 1.025, 1.05, 1.075, 1.1] # CHANGE! # 1.01:0.01:1.08
+const SwapStep = 600
 
 """Analysis settings."""
 const LengthsBlockSizes = Dict(
     # N => k
     200 => 500,
     300 => 2000,
+    400 => 2000
 )
 
 
@@ -69,7 +72,7 @@ end
 
 function runBlocking(;SavePlot=true)
 
-    BlockSizes = vcat(1, 5:5:20, 40:20:100, 150:50:300, 400:100:2000)
+    BlockSizes = vcat(1, 5:5:20, 40:20:100, 150:50:300, 400:200:4000)
 
     plot()
     for K in Ratios
@@ -106,7 +109,7 @@ function runAnalysis(k)
 
     FilePathOut = PROJECT_ROOT * "/test_parallel_tempering_data/SimBeta=$(SimBeta)_analysis.txt"
     open(FilePathOut, "a") do io
-        write(io, "# NR=$NR, Block size=$k [calculated $(now())]\n")
+        write(io, "# NR=$NR, Block size=$k, NSweeps=$NSweeps, SwapStep=$SwapStep [calculated $(now())]\n")
         write(io, "# N, K, ErrorQ2\n")
     end
 

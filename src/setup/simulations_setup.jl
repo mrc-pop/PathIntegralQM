@@ -4,8 +4,8 @@
 # determined using the other scripts
 
 """MODEL SETTINGS"""
-const NN = [50, 400]
-const SimBetas = vcat(0.1, [x for x in 0.5:0.5:10.0])
+const NN = [300]
+const SimBetas = [2.0]#[vcat(0.1, [x for x in 0.5:0.5:10.0])]
 
 """
 const NN = [25, 50, 75, 100,
@@ -29,7 +29,7 @@ const TailorSteps = round.(0.0 .* NN)       # How often to propose a tailor upda
 const ε_over_η = 0.2            			# Tolerance of tailor update in units of η
 
 """MEASUREMENT SETTINGS"""
-const QSteps = 10 .* NN # fill(,length(NN)) # How often to compute Q, for each N (0 = never, 1=always, n=after n-1 steps)
+const MeasureEvery = 10 .* NN # fill(,length(NN)) # How often to compute Q, for each N (0 = never, 1=always, n=after n-1 steps)
 
 """PARALLEL TEMPERING SETTINGS"""
 const NR = 1                                # Number of systems to be simulated in parallel

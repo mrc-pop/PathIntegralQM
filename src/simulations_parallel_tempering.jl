@@ -68,7 +68,7 @@ function PTRoutine(NR, Ratio, SwapStep, FolderOut)
         println("\nPerforming $NSweeps "* AlgoName * " sweeps of the whole lattice...")
 
         NMetro = NSweeps * N
-        MeasureInterval = QSteps[sizeindex]
+        MeasureInterval = MeasureEvery[sizeindex]
         ExpectedMeasurements = NSweeps * N ÷ MeasureInterval
         QQ = fill(0, ExpectedMeasurements)
         MeasureCount = 0
