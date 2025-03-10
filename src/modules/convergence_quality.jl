@@ -208,7 +208,7 @@ function GetQCorrelator(k::Int64,
 	for j in 1:N-k
 		QCorrelator += (QSamples[j]-AvgQ) * (QSamples[j+k]-AvgQ)
 	end
-	QCorrelator /= N-k
+	QCorrelator /= std(QSamples)^2 * (N-k)
 	return QCorrelator
 end
 

@@ -5,7 +5,7 @@
 
 """MODEL SETTINGS"""
 const NN = [50, 400]
-const SimBetas = vcat(0.1, [x for x in 0.5:0.5:10.0])
+const SimBetas = [0.5, 10.0] # vcat(0.1, [x for x in 0.5:0.5:10.0])
 
 """
 const NN = [25, 50, 75, 100,
@@ -20,8 +20,8 @@ const SimBetas = [0.01, 0.025, 0.05, 0.075,
 
 """ALGORITHM SETTINGS"""
 const Heatbath = false          			# Type of local algorithm (false → Metropolis)
-const NSweepsTherm = Int(1e2)   			# Number of updates of the whole lattice for thermalization
-const NSweeps = Int(5e5)        			# Number of updates of the whole lattice
+const NSweepsTherm = Int(1e4)   			# Number of updates of the whole lattice for thermalization
+const NSweeps = Int(5e4)        			# Number of updates of the whole lattice
 const Δ = 0.5                   			# Metropolis interval width
 const Sequential = true        				# Sequential or random site choice
 
