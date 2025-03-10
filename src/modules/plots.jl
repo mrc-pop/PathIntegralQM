@@ -228,7 +228,6 @@ function PlotQHistogramsUnicode(
 			color=:blue)
 		
 		@info "Data from: $FilePathIn" p
-		# savefig(p, "tmp.pdf")
 		
 		print("Would you like to plot another? (y/n) ")
 		UserRepeat = readline()
@@ -295,7 +294,7 @@ function PlotQHistograms(
 			color=:blue)
 		
 		FilePathOut = FilePathIn[1:end-4] * "_SimBeta=$(SimBeta).pdf"
-		savefig(p, FilePathOut)
+		Plots.savefig(p, FilePathOut)
 	end
 end
 
@@ -376,7 +375,7 @@ function PlotQHistogramsCompared(
 		"/N=$(N)" *
 		"_NSweeps=" * NSweepsString *
 		"_SimBeta=$(SimBeta).pdf"
-	savefig(p, FilePathOut)
+	Plots.savefig(p, FilePathOut)
 end
 
 # -------------------------------- Q correlators -------------------------------
@@ -433,7 +432,7 @@ function PlotQCorrelators(
 	mkpath(DirPathOut)
 	FilePathOut = DirPathOut * 
 		"/N=$(N)_NSweeps=" * NSweepsString	* "_SimBeta=$SimBeta.pdf"
-	savefig(p, FilePathOut)
+	Plots.savefig(p, FilePathOut)
 	
 end
 
@@ -462,7 +461,7 @@ function PlotQVarianceSimBeta(
 	p = plot(
 		xlabel=L"$\tilde{\beta}$",
 		ylabel=L"$\langle Q^2 \rangle$",
-		title=L"$\sigma_Q (\tilde{\beta})$ for different local schemes ($N=%$N$)",
+		title=L"$\chi (\tilde{\beta})$ for different local schemes ($N=%$N$)",
 		legend=:topleft
 	)
 	
@@ -499,6 +498,26 @@ function PlotQVarianceSimBeta(
 	mkpath(DirPathOut)
 	FilePathOut = DirPathOut * 
 		"/N=$(N)_NSweeps=" * NSweepsString	* ".pdf"
-	savefig(p, FilePathOut)
+	Plots.savefig(p, FilePathOut)
 	
+end
+
+# ------------------------- Convergence plots handler -------------------------- 
+
+function PlotQConvergenceFigures(DirPathIn, CNN, CSimBetas; PlotExtendedData=false)
+	
+	for N in CNN
+	
+		println("Plotting N=$N data")
+		if !PlotExtendedData
+			for SimBeta in CSimBetas		
+				PlotQHistogramsCompared(DirPathIn, SimBeta, N, NSweeps)
+				PlotQCorrelators(DirPathIn, SimBeta, N, NSweeps)
+			end
+		elseif PlotExtendedData
+			PlotQVarianceSimBeta(DirPathIn, N, NSweeps)
+		end
+		println()
+	
+	end
 end

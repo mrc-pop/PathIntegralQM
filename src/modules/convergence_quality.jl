@@ -119,10 +119,11 @@ function RunDeepAnalysis(
 	InputMetroData::Matrix{Int64},
 	InputHeatData::Matrix{Int64},
 	SimBetas::Vector{Float64},
-	kMax::Int64,
 	Sequential::Bool,
 	AdditionalHeaders::Dict{String, String};
-	Bins = -0.5:1.0:100.5 # 1, ..., 99, 100		# TODO Move to setup
+	kMax = 100,
+	Skip = 5,
+	Bins = -0.5:1.0:100.5 # 1, ..., 99, 100
 )
 
 	MetropolisQCorrelators = zeros(kMax+1,length(SimBetas))
@@ -138,9 +139,9 @@ function RunDeepAnalysis(
 			
 	for (sb,SimBeta) in enumerate(SimBetas)
 	
-		for k in 1:kMax+1
-			MetropolisQCorrelators[k,sb] = GetQCorrelator(k, InputMetroData[:,sb])
-			HeatbathQCorrelators[k,sb] = GetQCorrelator(k, InputHeatData[:,sb])
+		for k in 0:Skip:kMax
+			MetropolisQCorrelators[k+1,sb] = GetQCorrelator(k, InputMetroData[:,sb])
+			HeatbathQCorrelators[k+1,sb] = GetQCorrelator(k, InputHeatData[:,sb])
 		end
 							
 		MetroQBL = GetQBlockLengths(InputMetroData[:,sb])
@@ -208,7 +209,7 @@ function GetQCorrelator(k::Int64,
 	for j in 1:N-k
 		QCorrelator += (QSamples[j]-AvgQ) * (QSamples[j+k]-AvgQ)
 	end
-	QCorrelator /= N-k
+	QCorrelator /= std(QSamples)^2 * (N-k)
 	return QCorrelator
 end
 
