@@ -1,1 +1,2 @@
 simulations/**/*.txt
+test/test_parallel_tempering_data/NR=**
