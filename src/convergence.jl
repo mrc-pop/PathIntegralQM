@@ -80,7 +80,6 @@ function main()
 	NSweepsString = @sprintf "%.1e" NSweeps
 	RunTimes = zeros(Float64, length(CNN), 3)
 
-
 	for Seq in [true, false]
 
 		if Seq

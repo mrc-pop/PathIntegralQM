@@ -39,7 +39,7 @@ function RunConvergenceSimulations(
 			Scheme = Heatbath ? "Heatbath" : "Metropolis"
 
 			# Run simulations
-			for	(sb,SimBeta) in enumerate([2.0])#enumerate(SimBetas)
+			for	(sb,SimBeta) in enumerate(SimBetas)
 
 				QCounter = 1
 				Config = SetLattice(SimBeta, N)	# Initalize path
@@ -126,8 +126,9 @@ function RunDeepAnalysis(
 	Bins = -0.5:1.0:100.5 # 1, ..., 99, 100
 )
 
-	MetropolisQCorrelators = zeros(kMax+1,length(SimBetas))
-	HeatbathQCorrelators = zeros(kMax+1,length(SimBetas))
+	RowsNumber = floor(Int64, length(SimBetas)/Skip)
+	MetropolisQCorrelators = zeros(kMax+1,RowsNumber)
+	HeatbathQCorrelators = zeros(kMax+1,RowsNumber)
 	QCorrelators = Dict()
 
 	MetropolisQBlockLengths = Any[]
@@ -139,9 +140,11 @@ function RunDeepAnalysis(
 
 	for (sb,SimBeta) in enumerate(SimBetas)
 
+		TmpCounter = 1
 		for k in 0:Skip:kMax
-			MetropolisQCorrelators[k+1,sb] = GetQCorrelator(k, InputMetroData[:,sb])
-			HeatbathQCorrelators[k+1,sb] = GetQCorrelator(k, InputHeatData[:,sb])
+			MetropolisQCorrelators[TmpCounter,sb] = GetQCorrelator(k, InputMetroData[:,sb])
+			HeatbathQCorrelators[TmpCounter,sb] = GetQCorrelator(k, InputHeatData[:,sb])
+			TmpCounter += 1
 		end
 
 		MetroQBL = GetQBlockLengths(InputMetroData[:,sb])
@@ -205,11 +208,15 @@ function GetQCorrelator(k::Int64,
 						QSamples::Vector{Int64})
 	N = length(QSamples)
 	AvgQ = mean(QSamples)
+	StdQ = std(QSamples)
 	QCorrelator = 0
 	for j in 1:N-k
 		QCorrelator += (QSamples[j]-AvgQ) * (QSamples[j+k]-AvgQ)
 	end
-	QCorrelator /= std(QSamples)^2 * (N-k)
+	
+	if StdQ != 0
+		QCorrelator /= StdQ^2 * (N-k)
+	end
 	return QCorrelator
 end
 
