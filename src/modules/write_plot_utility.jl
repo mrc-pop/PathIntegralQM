@@ -115,32 +115,49 @@ function main()
 	DirPathIn = PROJECT_ROOT * "/../convergence"
 	
 	Waiting = true
-	println("This program allows for two modes: write and plot (w/p).
+	println("This program allows for two modes and two submodes: write and plot (w/p), deep and extended (d/e).
 - Write (w): run computations on previously computed Qs, write on file;
-- Plot (p): plot results.")
-	print("Choose your mode: (p/w) ")
+- Plot (p): plot results;
+And:
+- Deep (d): do that on deep data;
+- Extended (e): do that on extended data;
+The four options are we, pe, wd, pd")
+	print("Choose your mode: (we/pe/wd/pd) ")
 	UserMode = readline()
 	while Waiting
-		if UserMode == "w"
+		if UserMode == "we"
 			Waiting = false
-			@info "Writing data" ConvergenceNNExtended ConvergenceSimBetasExtended
+			@info "Writing extended data" ConvergenceNNExtended ConvergenceSimBetasExtended
 
 			for N in ConvergenceNNExtended
 				WriteQVarianceSimBetaTMP(DirPathIn, N, NSweeps)
 			end
 
-		elseif UserMode == "p"
+		elseif UserMode == "pe"
 			Waiting = false
-			@info "Plotting data" ConvergenceNNDeep ConvergenceSimBetasDeep
-			DeepAnalysis = true
+			@info "Plotting extended data" ConvergenceNNExtended ConvergenceSimBetasExtended
 
+			pgfplotsx()
 			for N in ConvergenceNNExtended
 				PlotQVarianceSimBetaTMP(DirPathIn, N, NSweeps)
 			end
+			
+		elseif UserMode == "wd"
+			Waiting = false
+			@info "Writing deep data" ConvergenceNNDeep ConvergenceSimBetasDeep
+
+			print("Mode under construction!")
+
+		elseif UserMode == "pd"
+			Waiting = false
+			@info "Plotting deep data" ConvergenceNNDeep ConvergenceSimBetasDeep
+			
+			pgfplotsx()
+			PlotQConvergenceFigures(DirPathIn, ConvergenceNNDeep, ConvergenceSimBetasDeep; PlotExtendedData=false)
 
 		else
 			Waiting = true
-			print("Invalid input. Please use w or p to answer. Choose your mode: (w/p) ")
+			print("Invalid input. Please use we, pe, wd or pd to answer. Choose your mode: (we/pe/wd/pd) ")
 			UserMode = readline()
 		end
 	end
