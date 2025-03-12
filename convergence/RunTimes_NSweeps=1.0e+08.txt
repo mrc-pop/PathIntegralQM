@@ -1,0 +1,2 @@
+# N; Metropolis-Seq=false; Heatbath-Seq=false
+0.0; 0.0; 0.0

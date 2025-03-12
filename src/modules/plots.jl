@@ -399,7 +399,7 @@ function PlotQCorrelators(
 	p = plot(
 		xlabel=L"$k$",
 		ylabel=L"$C_Q(k)$",
-		title=L"$Q$ correlator for different schemes ($N=%$N$)",
+		title=L"$Q$ correlator ($N=%$N, \tilde\beta=%$SimBeta$)",
 		legend=:topright
 	)
 
@@ -446,7 +446,7 @@ function ParseArray(
 )
 
 	ParsedWeights = parse.(Float64, split(strip(WeightsStr, ['[', ']', ' ']), ','))
-	
+
 	BinsStr = strip(BinsStr, ' ')
 	Delims = findall(':', BinsStr)
 	Start = parse(Float64, BinsStr[1:Delims[1]-1])
@@ -478,7 +478,7 @@ function PlotQBlocksHistogramsCompared(
 	xmin = -1
 
 	for (s,Scheme) in enumerate(Schemes)
-	
+
 		p = plot(
 			xlabel="Block length",
 			ylabel="Occurrencies",
@@ -490,7 +490,7 @@ function PlotQBlocksHistogramsCompared(
 			legend=:topright,
 			size=(700,300)
 		)
-	
+
 		for (m,Mode) in enumerate(Modes)
 			FilePathIn = DirPathIn *
 				"/" * Mode *
@@ -503,27 +503,27 @@ function PlotQBlocksHistogramsCompared(
 			Data = readdlm(FilePathIn, ';', comments=true)
 			SimBetas = Data[:,1]
 			Index = findall(x->x==SimBeta, SimBetas)[1]
-			
+
 			Weights, Bins = ParseArray(String(Data[Index, 2]), String(Data[Index, 3]))
-			
+
 			h = fit(Histogram, Weights, Bins)
 			h = normalize(h; mode=:pdf)
 			push!(Histograms, [h, Labels[2*(s-1)+m]])
-			
+
 			Edges = [x for x in Bins]
 			Centers = [round( (Edges[i+1]+Edges[i])/2, digits=2 ) for i in 1:length(Edges)-1]
-			
+
 			Index = 2*(s-1)+m	# Overwrite variable
-			
+
 			bar!(
 				Centers.-Spacings[m]*BarWidth, h.weights,
 				bar_width=BarWidth,
 				color=MyColors[2*Index],
 				label=Labels[Index]
 			)
-			
+
 		end
-		
+
 		DirPathOut = DirPathIn * "/convergence_plots/QBlocksHistograms_compared"
 		mkpath(DirPathOut)
 		FilePathOut = DirPathOut *
@@ -546,9 +546,9 @@ function PlotQVarianceSimBeta(
 	NSweepsString = @sprintf "%.1e" NSweeps
 	DirPathOut = DirPathIn * "/convergence_plots/QVariances_SimBeta"
 	mkpath(DirPathOut)
-	FilePathOut = DirPathOut * 
+	FilePathOut = DirPathOut *
 				"/N=$(N)_NSweeps=" * NSweepsString	* ".txt"
-				
+
 	DataFile = open(FilePathOut, "w")
 	write(DataFile, "# Label; SimBeta; <Q^2>; eQ^2\n")
 	close(DataFile)
@@ -556,25 +556,25 @@ function PlotQVarianceSimBeta(
 	Schemes = ["Metropolis", "Heatbath"]
 	Modes = ["sequential", "random"]
 	Labels = ["MS", "MR", "HS", "HR"]
-	
+
 	p = plot(
 		xlabel=L"$\tilde{\beta}$",
 		ylabel=L"$\langle Q^2 \rangle$",
 		title=L"$\chi (\tilde{\beta})$ for different local schemes ($N=%$N$)",
 		legend=:topleft
 	)
-	
+
 	for (s,Scheme) in enumerate(Schemes)
 		for (m,Mode) in enumerate(Modes)
 			Label = Labels[2*(s-1)+m]
-			
+
 			FilePathIn = DirPathIn *
 				"/" * Mode *
 				"/N=$N/" *
 				Scheme *
 				"_NSweeps=" * NSweepsString *
 				".txt"
-				
+
 			@info "Loading data" Scheme Mode N NSweeps
 			Data = readdlm(FilePathIn, ';', comments=true)
 			SimBetas = Data[1,:]
@@ -590,20 +590,20 @@ function PlotQVarianceSimBeta(
 				write(DataFile, "$(Label); $(SimBeta); $(TmpQQ); $(TmpEQQ)\n")
 			end
 			close(DataFile)
-			
+
 			plot!(p, SimBetas,  QQ[:,1],
 				label=Label,
 				markershape=:circle,
 				markersize=1.5,
 				linewidth=0.5,
-				color=MyColors[2*(2*(s-1)+m)])	
+				color=MyColors[2*(2*(s-1)+m)])
 		end
 	end
 
-	FilePathOut = DirPathOut * 
+	FilePathOut = DirPathOut *
 		"/N=$(N)_NSweeps=" * NSweepsString	* ".pdf"
 	Plots.savefig(p, FilePathOut)
-	
+
 end
 
 # ------------------------- Convergence plots handler --------------------------

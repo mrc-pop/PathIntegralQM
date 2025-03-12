@@ -18,7 +18,7 @@ function RunConvergenceSimulations(
 	HeatbathQMatrix = zeros(Int64, floor(Int64, NSweeps*N/QStep), length(SimBetas))
 	HeatbathElapsedTime = 0
 
-	for Heatbath in [false]#, true]
+	for Heatbath in [false, true]
 
 		ElapsedTime = @elapsed begin	# Start time tracking
 
@@ -213,7 +213,7 @@ function GetQCorrelator(k::Int64,
 	for j in 1:N-k
 		QCorrelator += (QSamples[j]-AvgQ) * (QSamples[j+k]-AvgQ)
 	end
-	
+
 	if StdQ != 0
 		QCorrelator /= (StdQ^2 * (N-k))
 	end
