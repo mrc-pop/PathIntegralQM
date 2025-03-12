@@ -17,15 +17,15 @@ const SimBetas = [2.0]        			# Adimensional inverse temperature
 """ALGORITHM SETTINGS"""
 const Heatbath = false          			# Type of local algorithm (false → Metropolis)
 const NSweepsTherm = 0 # Int(1e5)   			# Number of updates of the whole lattice for thermalization
-const NSweeps = Int(1e7) # Int(1e6)        			# Number of updates of the whole lattice
+const NSweeps = Int(1e3)                	# Number of updates of the whole lattice
 const Δ = 0.5                   			# Metropolis interval width
-const Sequential = false        				# Sequential or random site choice
+const Sequential = false        			# Sequential or random site choice
 
-const TailorSteps = round.(5 .* NN)       # How often to propose a tailor update, for each N (0 = never)
+const TailorSteps = round.(5 .* NN)         # How often to propose a tailor update, for each N (0 = never)
 const ε_over_η = 1.0            			# Tolerance of tailor update in units of η
 
 """MEASUREMENT SETTINGS"""
-const QSteps = NN		# How often to compute Q, for each N (0 = never, 1=always, n=after n-1 steps)
+const QSteps = [400]	                    # How often to compute Q, for each N (0 = never, 1=always, n=after n-1 steps)
 const MeasureEvery = 10 .* NN
 
 """PARALLEL TEMPERING SETTINGS"""
