@@ -7,12 +7,12 @@ include(PROJECT_ROOT * "/../src/modules/plots.jl")
 include(PROJECT_ROOT * "/../src/modules/processing.jl")
 
 const NSweepsTherm = Int(1e3)
-const NSweeps = Int(1e6)                    # number of updates of the whole lattice
+const NSweeps = Int(1e4)                    # number of updates of the whole lattice
 const Δ = 0.3
 const sequential = true
-const NN = [100, 200, 300]                  # number of lattice points
+const NN = [100, 200, 300, 400]                            # number of lattice points
 const SimBeta = 2.0
-const εε_over_ηη = [0.5, 1.0, 1.5, 2.0]     # tolerance of tailor method, in units of η
+const εε_over_ηη = [0.2, 1.0, 2.0, 10.0]     # tolerance of tailor method, in units of η
 
 function main()
 
@@ -28,7 +28,7 @@ function main()
 
         for Fraction in εε_over_ηη
             ε = Fraction * η
-            println("\nUsing ε=$ε, N=$N, η=$η, ε/η = $Fraction")
+            println("\nUsing N=$N, ε/η = $Fraction (ε=$ε, η=$η)")
 
             Config = SetLattice(1.0, N)
             FoundTailor = 0

@@ -14,36 +14,36 @@ function RunConvergenceSimulations(
 
 	MetropolisQMatrix = zeros(Int64, floor(Int64, NSweeps*N/QStep), length(SimBetas))
 	MetropolisElapsedTime = 0
-	
+
 	HeatbathQMatrix = zeros(Int64, floor(Int64, NSweeps*N/QStep), length(SimBetas))
 	HeatbathElapsedTime = 0
-	
-	for Heatbath in [false, true]
-	
+
+	for Heatbath in [false]#, true]
+
 		ElapsedTime = @elapsed begin	# Start time tracking
-		
+
 			if !Heatbath
 				@info "Starting Metropolis simulations..."
 			elseif Heatbath
 				@info "Starting Heatbath simulations..."
 			end
-		
+
 			QMatrix = zeros(Int64, floor(Int64, NSweeps*N/(QStep)), length(SimBetas))
-		
+
 			if !Heatbath
 				QMatrix = MetropolisQMatrix
 			elseif Heatbath
 				QMatrix = HeatbathQMatrix
 			end
-			
+
 			Scheme = Heatbath ? "Heatbath" : "Metropolis"
-		
+
 			# Run simulations
-			for	(sb,SimBeta) in enumerate(SimBetas)
-				
+			for	(sb,SimBeta) in enumerate([2.0])#enumerate(SimBetas)
+
 				QCounter = 1
 				Config = SetLattice(SimBeta, N)	# Initalize path
-				
+
 				println()
 				@info "Model settings" N SimBeta
 				@info Scheme * " settings" Heatbath Δ Sequential NSweepsTherm NSweeps
@@ -65,7 +65,7 @@ function RunConvergenceSimulations(
 				        	MetropolisUpdate!(Config, Site; Δ=UserDelta)
 				        elseif Heatbath
 				        	HeatBathUpdate!(Config, Site)
-				        end         
+				        end
 				    end
 				end
 
@@ -84,7 +84,7 @@ function RunConvergenceSimulations(
 						end
 						# Perform update
 				        if !Heatbath
-				        	MetropolisUpdate!(Config, Site; Δ=UserDelta) 
+				        	MetropolisUpdate!(Config, Site; Δ=UserDelta)
 				        elseif Heatbath
 				        	HeatBathUpdate!(Config, Site)
 				        end
@@ -97,7 +97,7 @@ function RunConvergenceSimulations(
 				end
 			end
 		end
-		
+
 		if !Heatbath
 			MetropolisQMatrix = QMatrix
 			MetropolisElapsedTime = ElapsedTime
@@ -105,9 +105,9 @@ function RunConvergenceSimulations(
 			HeatbathQMatrix = QMatrix
 			HeatbathElapsedTime = ElapsedTime
 		end
-		
+
 	end
-	
+
 	return MetropolisQMatrix, MetropolisElapsedTime, HeatbathQMatrix, HeatbathElapsedTime
 end
 
@@ -129,69 +129,69 @@ function RunDeepAnalysis(
 	MetropolisQCorrelators = zeros(kMax+1,length(SimBetas))
 	HeatbathQCorrelators = zeros(kMax+1,length(SimBetas))
 	QCorrelators = Dict()
-	
+
 	MetropolisQBlockLengths = Any[]
 	HeatbathQBlockLengths = Any[]
-	
+
 	MetropolisHistogram = Any[]
 	HeatbathHistogram = Any[]
 	QHistograms = Dict()
-			
+
 	for (sb,SimBeta) in enumerate(SimBetas)
-	
+
 		for k in 0:Skip:kMax
 			MetropolisQCorrelators[k+1,sb] = GetQCorrelator(k, InputMetroData[:,sb])
 			HeatbathQCorrelators[k+1,sb] = GetQCorrelator(k, InputHeatData[:,sb])
 		end
-							
+
 		MetroQBL = GetQBlockLengths(InputMetroData[:,sb])
 		push!(MetropolisQBlockLengths, MetroQBL)
-		
+
 		HeatQBL = GetQBlockLengths(InputHeatData[:,sb])
 		push!(HeatbathQBlockLengths, HeatQBL)
-	
+
 		hM = fit(Histogram, MetroQBL, Bins)
 		push!(MetropolisHistogram, [SimBeta, hM.weights, hM.edges[1]])
-		
+
 		hH = fit(Histogram, HeatQBL, Bins)
 		push!(HeatbathHistogram, [SimBeta, hH.weights, hH.edges[1]])
-	
+
 	end
-	
-	QCorrelators = Dict([("Metropolis-Seq=$Sequential", MetropolisQCorrelators), 
+
+	QCorrelators = Dict([("Metropolis-Seq=$Sequential", MetropolisQCorrelators),
 						("Heatbath-Seq=$Sequential", HeatbathQCorrelators)])
-	
-	QHistograms = Dict([("Metropolis-Seq=$Sequential", MetropolisHistogram), 
+
+	QHistograms = Dict([("Metropolis-Seq=$Sequential", MetropolisHistogram),
 						 ("Heatbath-Seq=$Sequential", HeatbathHistogram)])
-	
+
 	for (s,Scheme) in enumerate(["Metropolis", "Heatbath"])
 		mkpath(DirPathOut * "/Q_deep/")
-		
+
 		# Write correlators on file
 		FilePathOut = DirPathOut * "/Q_deep/$(Scheme)_NSweeps=$(NSweepsString)_QCorrelators.txt"
 		GeneralHeader = "# " * Scheme * ", Sequential=$(Sequential), NSweeps=" * NSweepsString * "\n"
-		
+
 		DataFile = open(FilePathOut, "w")
 		write(DataFile, GeneralHeader)
 		write(DataFile, AdditionalHeaders["SimBetas"])
 		write(DataFile, AdditionalHeaders["SimBetasValues"])
 		write(DataFile, AdditionalHeaders["QCorrelators"])
 		close(DataFile)
-		
+
 		open(FilePathOut, "a") do io
 			M = QCorrelators[Scheme * "-Seq=$Sequential"]
 		    writedlm(io, M, "; ")
 		end
-		
+
 		# Write binned data on file
 		FilePathOut = DirPathOut * "/Q_deep/$(Scheme)_NSweeps=" * NSweepsString * "_QHistograms.txt"
 		GeneralHeader = "# " * Scheme * ", Sequential=$(Sequential), NSweeps=" * NSweepsString * "\n"
-		
+
 		DataFile = open(FilePathOut, "w")
 		write(DataFile, GeneralHeader)
 		write(DataFile, AdditionalHeaders["QHistograms"])
 		close(DataFile)
-		
+
 		open(FilePathOut, "a") do io
 			M = QHistograms[Scheme * "-Seq=$Sequential"]
 		    writedlm(io, M, "; ")
@@ -222,7 +222,7 @@ function GetQBlockLengths(QSamples::Vector{Int64})
 		while QSamples[i] == QSamples[iStart] && i<N
 			i += 1
 		end
-		BlockLength = i-iStart	
+		BlockLength = i-iStart
 		iStart = i+1
 		append!(BlockLengths,BlockLength)
 	end
@@ -234,10 +234,10 @@ end
 function ProcessQDataFilePath(
 	FilePathIn::String
 )
-	
+
 	# Find directory delimiters "/"
 	DirDelims = findall('/', FilePathIn)
-	
+
 	# Check if the files was generated sequentially or randomly
 	Sequential = missing
 	SequentialString = FilePathIn[ DirDelims[end-2]+1 : DirDelims[end-1]-1 ]
@@ -248,16 +248,16 @@ function ProcessQDataFilePath(
 	else
 		error("Invalid FilePathIn. Impossible to distinguish sequential/random.")
 	end
-	
+
 	# Extract N reading the directory name
 	NString = FilePathIn[ DirDelims[end-1]+1 : DirDelims[end]-1 ]
 	N = parse(Int64, NString[3:end])
-	
+
 	# Extract the scheme reading the file name
 	FileString = FilePathIn[ DirDelims[end]+1 : end ]
 	UnderScoreDelims = findall('_', FileString)
 	Scheme = FileString[ 1 : UnderScoreDelims[1]-1 ]
-	
+
 	# Extract NSweeps reading the file name
 	if length(UnderScoreDelims)==1
 		NSweepsString = FileString[ UnderScoreDelims[1]+9 : end-4 ]
@@ -266,7 +266,7 @@ function ProcessQDataFilePath(
 		NSweepsString = FileString[ UnderScoreDelims[1]+9 : UnderScoreDelims[2]-1 ]
 		NSweeps = Int64(parse(Float64, NSweepsString))
 	end
-		
+
 	return Sequential, N, Scheme, NSweeps
 
 end

@@ -9,18 +9,30 @@ include(PROJECT_ROOT * "/../src/setup/graphic_setup.jl")
 include(PROJECT_ROOT * "/../src/setup/simulations_setup.jl")
 include(PROJECT_ROOT * "/../src/modules/processing.jl")
 
+# const LengthsBlockSizes = Dict( # see txt file
+#     # N => k
+#     75 => 10,
+#     100 => 25,
+#     125 => 50,
+#     150 => 100,
+#     175 => 100,
+#     200 => 100,
+#     300 => 250,
+#     400 => 1000
+# )
+
 const LengthsBlockSizes = Dict( # see txt file
     # N => k
-    50 => 1,
-    75 => 10,
-    100 => 25,
+    75 => 50,
+    100 => 50,
     125 => 50,
-    150 => 100,
-    175 => 100,
-    200 => 100,
-    300 => 500,
-    400 => 500
+    150 => 50,
+    175 => 50,
+    200 => 50,
+    300 => 100,
+    400 => 100
 )
+
 # const LengthsBlockSizes = Dict(
 #     # N => k
 #     50 => 1000,
@@ -35,7 +47,7 @@ const LengthsBlockSizes = Dict( # see txt file
 # )
 
 
-const Scan = false          # Scan all available N # TODO remove
+const Scan = true          # Scan all available N # TODO remove
 const MakeHist = false      # plot Histogram
 
 function main()
@@ -45,8 +57,8 @@ function main()
     end
 
     # Define kk as the values of LengthsBlockSizes
-    kk = collect(values(LengthsBlockSizes))
     Sizes = collect(keys(LengthsBlockSizes))
+    kk = collect(values(LengthsBlockSizes))
 
     SimBeta = parse(Float64, ARGS[1])
 

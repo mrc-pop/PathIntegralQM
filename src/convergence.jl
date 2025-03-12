@@ -38,21 +38,21 @@ function main()
 			@info "Starting extended simulation" ConvergenceNNExtended ConvergenceSimBetasExtended
 			global CNN = ConvergenceNNExtended
 			global CSimBetas = ConvergenceSimBetasExtended
-			
+
 		elseif UserMode == "d"
 			Waiting = false
 			@info "Starting in-depth simulation" ConvergenceNNDeep ConvergenceSimBetasDeep
 			DeepAnalysis = true
 			global CNN = ConvergenceNNDeep
 			global CSimBetas = ConvergenceSimBetasDeep
-			
+
 		else
 			Waiting = true
 			print("Invalid input. Please use e or d to answer. Choose your mode: (e/d) ")
 			UserMode = readline()
 		end
 	end
-	
+
 	Now = now()	# Comparable timestamps
 
 	# Prepare files headers: first line contains SimBetas
@@ -60,7 +60,7 @@ function main()
 	QHeader = "# Following lines: Qs (divided for each SimBeta) [calculated $Now]\n"
 	QCorrelatorsHeader = "# Following lines: Q correlator at increasing distance (divided for each SimBeta) [calculated $Now]\n"
 	QHistogramsHeader = "# SimBeta; Q weights; Q edges; [calculated $Now]\n"
-	
+
 	SimBetasString = ""
 	for SimBeta in CSimBetas
 		SimBetasString *= "$SimBeta; "
@@ -68,7 +68,7 @@ function main()
 	SimBetasChars = collect(SimBetasString)
 	popat!(SimBetasChars, length(SimBetasString)-1)
 	SimBetasString = String(SimBetasChars) * "\n"
-	
+
 	AdditionalHeaders = Dict([
 		("Q", QHeader),
 		("QCorrelators", QCorrelatorsHeader),
@@ -81,8 +81,8 @@ function main()
 	RunTimes = zeros(Float64, length(CNN), 3)
 
 
-	for Seq in [true, false]
-	
+	for Seq in [false]#[true, false]
+
 		if Seq
 			DirPathOut = PROJECT_ROOT * "/../convergence/sequential/"
 		elseif !Seq
@@ -92,15 +92,15 @@ function main()
 		TmpDirPathOut = DirPathOut
 
 		for (n,N) in enumerate(CNN)
-		
+
 			QStep = QSteps[n]
-		
+
 			if Seq
 				DirPathOut = TmpDirPathOut * "/N=$(N)/"
 			elseif !Seq
 				DirPathOut = TmpDirPathOut * "/N=$(N)/"
 			end
-			
+
 			mkpath(DirPathOut)
 
 			println()
@@ -108,10 +108,10 @@ function main()
 			Results = RunConvergenceSimulations(N, NSweepsTherm, NSweeps, CSimBetas, QStep; Sequential=Seq)
 			MetropolisQMatrix, MetropolisElapsedTime, HeatbathQMatrix, HeatbathElapsedTime = Results
 			QMatrices = Dict([("Metropolis-Seq=$Seq", MetropolisQMatrix),
-							  ("Metropolis-Seq=$Seq-Time", MetropolisElapsedTime), 
+							  ("Metropolis-Seq=$Seq-Time", MetropolisElapsedTime),
 							  ("Heatbath-Seq=$Seq", HeatbathQMatrix),
 							  ("Heatbath-Seq=$Seq-Time", MetropolisElapsedTime)])
-							  
+
 			RunTimes[n,:] = [N, MetropolisElapsedTime, HeatbathElapsedTime]
 			@info "Total Metropolis runtime for size $N" MetropolisElapsedTime
 			@info "Total Heatbath runtime for size $N" HeatbathElapsedTime
@@ -124,24 +124,24 @@ function main()
 								", Sequential=$(Seq)," *
 								" NSweeps=" * NSweepsString *
 								", Elapsed time=$ElapsedTime\n"
-				
+
 				DataFile = open(FilePathOut, "w")
 				write(DataFile, GeneralHeader)
 				write(DataFile, AdditionalHeaders["SimBetas"])
 				write(DataFile, AdditionalHeaders["SimBetasValues"])
 				write(DataFile, AdditionalHeaders["Q"])
 				close(DataFile)
-				
+
 				open(FilePathOut, "a") do io
 					M = QMatrices[Scheme * "-Seq=$Seq"]
 				    writedlm(io, M, "; ")
 				end
 			end
-			
+
 			# -------------------------- In-depth analysis ---------------------
-			
+
 			if DeepAnalysis
-				
+
 				RunDeepAnalysis(
 					DirPathOut,
 					NSweepsString,
@@ -152,15 +152,15 @@ function main()
 					AdditionalHeaders;
 					kMax=500
 				)
-				
+
 				println("In-depth analysis completed.")
 
 			end
-		
+
 		end
 
 		# ------------------------------ Runtimes plot -------------------------
-	
+
 		unicodeplots()
 		p = lineplot(
 			xlabel = "N",
@@ -176,7 +176,7 @@ function main()
 		if DeepAnalysis
 			FilePathOut = DirPathOut * "/../RunTimes_NSweeps=" * NSweepsString * ".txt"
 			GeneralHeader = "# N; Metropolis-Seq=$(Seq); Heatbath-Seq=$(Seq)\n"
-			
+
 			DataFile = open(FilePathOut, "w")
 			write(DataFile, GeneralHeader)
 			close(DataFile)
@@ -186,13 +186,13 @@ function main()
 		end
 
 	end
-	
+
 	# ------------------------------ Detailed plot -----------------------------
-	
+
 	DirPathIn = PROJECT_ROOT * "/../convergence"
 	pgfplotsx()
 	PlotQConvergenceFigures(DirPathIn, CNN, CSimBetas; PlotExtendedData=!DeepAnalysis)
-	
+
 end
 
 if abspath(PROGRAM_FILE) == @__FILE__

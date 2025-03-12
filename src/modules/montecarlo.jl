@@ -139,15 +139,20 @@ function HeatBathUpdate!(
 
 	N = Config.N
 
+    xNext = Config.Lattice[mod1(Site+1,N)] # N ↦ 1
+    xPrev = Config.Lattice[mod1(Site-1,N)] # 1 ↦ N
+
     # Gaussian parameter linked to simulations parameters
     Alpha = 1/(Config.Eta * Config.SimBeta)
+    # OLD: # Center = (Config.Lattice[mod1(Site-1,N)] + Config.Lattice[mod1(Site+1,N)])/2
 
     # Interpolate lowest action postion
-    Center = (Config.Lattice[mod1(Site-1,N)] + Config.Lattice[mod1(Site+1,N)])/2
+    Dist = CalculateDistance(xNext, xPrev)
+    Center = mod(xPrev + Dist/2, 1)
 
     # Extract update from gaussian pdf with null center e unitary variance,
     # then recenter the result
-    Update = mod(Center + randn()/(2*sqrt(Alpha)), 1)
+    Update = mod(Center + randn() * sqrt(Config.Eta/2), 1)
     Config.Lattice[Site] = Update
 
     return
