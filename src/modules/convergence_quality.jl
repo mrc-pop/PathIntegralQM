@@ -126,7 +126,7 @@ function RunDeepAnalysis(
 	Bins = -0.5:1.0:100.5 # 1, ..., 99, 100
 )
 
-	RowsNumber = floor(Int64, kMax/Skip)
+	RowsNumber = floor(Int64, (kMax+1)/Skip)
 	MetropolisQCorrelators = zeros(RowsNumber,length(SimBetas))
 	HeatbathQCorrelators = zeros(RowsNumber,length(SimBetas))
 	QCorrelators = Dict()
