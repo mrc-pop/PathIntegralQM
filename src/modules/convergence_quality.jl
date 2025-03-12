@@ -126,7 +126,7 @@ function RunDeepAnalysis(
 	Bins = -0.5:1.0:100.5 # 1, ..., 99, 100
 )
 
-	RowsNumber = floor(Int64, kMax+1/Skip)
+	RowsNumber = floor(Int64, kMax/Skip)
 	MetropolisQCorrelators = zeros(RowsNumber,length(SimBetas))
 	HeatbathQCorrelators = zeros(RowsNumber,length(SimBetas))
 	QCorrelators = Dict()
@@ -172,7 +172,7 @@ function RunDeepAnalysis(
 
 		# Write correlators on file
 		FilePathOut = DirPathOut * "/Q_deep/$(Scheme)_NSweeps=$(NSweepsString)_QCorrelators.txt"
-		GeneralHeader = "# " * Scheme * ", Sequential=$(Sequential), NSweeps=" * NSweepsString * "\n"
+		GeneralHeader = "# " * Scheme * ", Sequential=$(Sequential), NSweeps=" * NSweepsString * ", Skip=$(Skip)\n"
 
 		DataFile = open(FilePathOut, "w")
 		write(DataFile, GeneralHeader)
