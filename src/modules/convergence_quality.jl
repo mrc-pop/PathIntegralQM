@@ -215,7 +215,7 @@ function GetQCorrelator(k::Int64,
 	end
 	
 	if StdQ != 0
-		QCorrelator /= StdQ^2 * (N-k)
+		QCorrelator /= (StdQ^2 * (N-k))
 	end
 	return QCorrelator
 end
