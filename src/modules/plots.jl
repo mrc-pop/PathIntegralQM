@@ -455,53 +455,66 @@ function PlotQVarianceSimBeta(
 )
 
 	NSweepsString = @sprintf "%.1e" NSweeps
+	DirPathOut = DirPathIn * "/convergence_plots/QVariances_SimBeta"
+	mkpath(DirPathOut)
+	FilePathOut = DirPathOut * 
+				"/N=$(N)_NSweeps=" * NSweepsString	* ".txt"
+				
+	DataFile = open(FilePathOut, "w")
+	write(DataFile, "# Label; SimBeta; <Q^2>; eQ^2\n")
+	close(DataFile)
 
 	Schemes = ["Metropolis", "Heatbath"]
 	Modes = ["sequential", "random"]
 	Labels = ["MS", "MR", "HS", "HR"]
-
+	
 	p = plot(
 		xlabel=L"$\tilde{\beta}$",
 		ylabel=L"$\langle Q^2 \rangle$",
 		title=L"$\chi (\tilde{\beta})$ for different local schemes ($N=%$N$)",
 		legend=:topleft
 	)
-
+	
 	for (s,Scheme) in enumerate(Schemes)
 		for (m,Mode) in enumerate(Modes)
+			Label = Labels[2*(s-1)+m]
+			
 			FilePathIn = DirPathIn *
 				"/" * Mode *
 				"/N=$N/" *
 				Scheme *
 				"_NSweeps=" * NSweepsString *
 				".txt"
-
+				
 			@info "Loading data" Scheme Mode N NSweeps
 			Data = readdlm(FilePathIn, ';', comments=true)
 			SimBetas = Data[1,:]
 			QMatrix = Data[2:end,:]
 
+			DataFile = open(FilePathOut, "a")
 			QQ = zeros(length(SimBetas),2)
 			for (sb, SimBeta) in enumerate(SimBetas)
-				QQ[sb,1] = mean(QMatrix[:,sb].^2)
-				QQ[sb,2] = std(QMatrix[:,sb].^2)
+				TmpQQ = mean(QMatrix[:,sb].^2)
+				TmpEQQ = std(QMatrix[:,sb].^2)
+				QQ[sb,1] = TmpQQ
+				QQ[sb,2] = TmpEQQ
+				write(DataFile, "$(Label); $(SimBeta); $(TmpQQ); $(TmpEQQ)\n")
 			end
-
+			close(DataFile)
+			
 			plot!(p, SimBetas,  QQ[:,1],
-				label=Labels[2*(s-1)+m],
+				label=Label,
 				markershape=:circle,
 				markersize=1.5,
 				linewidth=0.5,
-				color=MyColors[2*(2*(s-1)+m)])
+				color=MyColors[2*(2*(s-1)+m)])	
 		end
 	end
 
-	DirPathOut = DirPathIn * "/convergence_plots/QVariances_SimBeta"
-	mkpath(DirPathOut)
-	FilePathOut = DirPathOut *
+	FilePathOut = DirPathOut * 
 		"/N=$(N)_NSweeps=" * NSweepsString	* ".pdf"
 	Plots.savefig(p, FilePathOut)
-
+	
 end
 
 # ------------------------- Convergence plots handler --------------------------

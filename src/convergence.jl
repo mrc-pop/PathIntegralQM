@@ -81,7 +81,7 @@ function main()
 	RunTimes = zeros(Float64, length(CNN), 3)
 
 
-	for Seq in [false]#[true, false]
+	for Seq in [true, false]
 
 		if Seq
 			DirPathOut = PROJECT_ROOT * "/../convergence/sequential/"
