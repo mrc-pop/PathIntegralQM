@@ -4,9 +4,9 @@
 # determined using the other scripts
 
 """CONVERGENCE SETTINGS"""
-const ConvergenceNNDeep = [400]
-const ConvergenceNNExtended = [50, 400]#[x for x in 50:50:400]
-const ConvergenceSimBetasDeep = [0.5, 10.0]
+const ConvergenceNNDeep = [10] # [50, 400]
+const ConvergenceNNExtended = [50, 400] # [x for x in 50:50:400]
+const ConvergenceSimBetasDeep = [1.0] # [0.5, 10.0]
 const ConvergenceSimBetasExtended = vcat(0.1, [x for x in 0.5:0.5:10.0])
 
 """MODEL SETTINGS"""
@@ -16,8 +16,8 @@ const SimBetas = [2.0]        			# Adimensional inverse temperature
 
 """ALGORITHM SETTINGS"""
 const Heatbath = false          			# Type of local algorithm (false → Metropolis)
-const NSweepsTherm = Int(1e5)   			# Number of updates of the whole lattice for thermalization
-const NSweeps = Int(1e6)        			# Number of updates of the whole lattice
+const NSweepsTherm = 0 # Int(1e5)   			# Number of updates of the whole lattice for thermalization
+const NSweeps = Int(1e3) # Int(1e6)        			# Number of updates of the whole lattice
 const Δ = 0.5                   			# Metropolis interval width
 const Sequential = false        				# Sequential or random site choice
 

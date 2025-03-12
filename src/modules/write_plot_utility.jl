@@ -110,10 +110,42 @@ function PlotQVarianceSimBetaTMP(
 
 end
 
-if abspath(PROGRAM_FILE) == @__FILE__
-
+function main()
+	
 	DirPathIn = PROJECT_ROOT * "/../convergence"
-    for N in ConvergenceNNExtended			# TODO Change here
-	    PlotQVarianceSimBetaTMP(DirPathIn, N, NSweeps)
-    end
+	
+	Waiting = true
+	println("This program allows for two modes: write and plot (w/p).
+- Write (w): run computations on previously computed Qs, write on file;
+- Plot (p): plot results.")
+	print("Choose your mode: (p/w) ")
+	UserMode = readline()
+	while Waiting
+		if UserMode == "w"
+			Waiting = false
+			@info "Writing data" ConvergenceNNExtended ConvergenceSimBetasExtended
+
+			for N in ConvergenceNNExtended
+				WriteQVarianceSimBetaTMP(DirPathIn, N, NSweeps)
+			end
+
+		elseif UserMode == "p"
+			Waiting = false
+			@info "Plotting data" ConvergenceNNDeep ConvergenceSimBetasDeep
+			DeepAnalysis = true
+
+			for N in ConvergenceNNExtended
+				PlotQVarianceSimBetaTMP(DirPathIn, N, NSweeps)
+			end
+
+		else
+			Waiting = true
+			print("Invalid input. Please use w or p to answer. Choose your mode: (w/p) ")
+			UserMode = readline()
+		end
+	end
+end
+
+if abspath(PROGRAM_FILE) == @__FILE__
+	main()
 end

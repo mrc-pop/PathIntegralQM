@@ -440,11 +440,100 @@ end
 
 # ---------------------------------- Q blocks ----------------------------------
 
-function PlotQBlocksHistograms(
-	FilePathIn::String
+function ParseArray(
+	WeightsStr::String,
+	BinsStr::String
 )
 
+	ParsedWeights = parse.(Float64, split(strip(WeightsStr, ['[', ']', ' ']), ','))
+	
+	BinsStr = strip(BinsStr, ' ')
+	Delims = findall(':', BinsStr)
+	Start = parse(Float64, BinsStr[1:Delims[1]-1])
+	Step = parse(Float64, BinsStr[Delims[1]+1:Delims[2]-1])
+	Stop = parse(Float64, BinsStr[Delims[2]+1:end])
+	ParsedBins = Start:Step:Stop
+	return ParsedWeights, ParsedBins
 end
+
+function PlotQBlocksHistogramsCompared(
+	DirPathIn::String, # Up to /convergence/
+	SimBeta::Float64,
+	N::Int64,
+	NSweeps::Int64;
+	BarWidth = 0.2
+)
+
+	Schemes = ["Metropolis", "Heatbath"]
+	Modes = ["sequential", "random"]
+
+	NSweepsString = @sprintf "%.1e" NSweeps
+	Histograms = Any[]
+	Labels = ["MS", "MR", "HS", "HR"]
+	Spacings = [0.5, -0.5]
+
+	pgfplotsx()
+
+	xmax = 31
+	xmin = -1
+
+	for (s,Scheme) in enumerate(Schemes)
+	
+		p = plot(
+			xlabel="Block length",
+			ylabel="Occurrencies",
+			title=L"Same-$Q$ block lengths (%$Scheme, $N=%$N$, $\tilde{\beta}=%$SimBeta$)",
+			xlim=(xmin,xmax),
+			ylim=(0,1),
+			xticks=0:10:100,
+			minorticks=false,
+			legend=:topright,
+			size=(700,300)
+		)
+	
+		for (m,Mode) in enumerate(Modes)
+			FilePathIn = DirPathIn *
+				"/" * Mode *
+				"/N=$N/Q_deep/" *
+				Scheme *
+				"_NSweeps=" * NSweepsString *
+				"_QHistograms.txt"
+
+			@info "Loading data" Scheme Mode N NSweeps SimBeta
+			Data = readdlm(FilePathIn, ';', comments=true)
+			SimBetas = Data[:,1]
+			Index = findall(x->x==SimBeta, SimBetas)[1]
+			
+			Weights, Bins = ParseArray(String(Data[Index, 2]), String(Data[Index, 3]))
+			
+			h = fit(Histogram, Weights, Bins)
+			h = normalize(h; mode=:pdf)
+			push!(Histograms, [h, Labels[2*(s-1)+m]])
+			
+			Edges = [x for x in Bins]
+			Centers = [round( (Edges[i+1]+Edges[i])/2, digits=2 ) for i in 1:length(Edges)-1]
+			
+			Index = 2*(s-1)+m	# Overwrite variable
+			
+			bar!(
+				Centers.-Spacings[m]*BarWidth, h.weights,
+				bar_width=BarWidth,
+				color=MyColors[2*Index],
+				label=Labels[Index]
+			)
+			
+		end
+		
+		DirPathOut = DirPathIn * "/convergence_plots/QBlocksHistograms_compared"
+		mkpath(DirPathOut)
+		FilePathOut = DirPathOut *
+			"/N=$(N)" *
+			"$(Scheme)_NSweeps=" * NSweepsString *
+			"_SimBeta=$(SimBeta).pdf"
+		Plots.savefig(p, FilePathOut)
+	end
+end
+
 
 # --------------------------------- Q variance ---------------------------------
 
