@@ -397,7 +397,7 @@ function PlotQCorrelators(
 	Labels = ["MS", "MR", "HS", "HR"]
 
 	p = plot(
-		xlabel=L"$k$",
+		xlabel=L"$k/n_Q$",
 		ylabel=L"$C_Q(k)$",
 		title=L"$Q$ correlator ($N=%$N, \tilde\beta=%$SimBeta$)",
 		legend=:topright
