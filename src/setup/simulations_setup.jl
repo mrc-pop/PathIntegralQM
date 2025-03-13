@@ -25,7 +25,7 @@ const TailorSteps = round.(5 .* NN)       # How often to propose a tailor update
 const ε_over_η = 1.0            			# Tolerance of tailor update in units of η
 
 """MEASUREMENT SETTINGS"""
-const QSteps = NN		# How often to compute Q, for each N (0 = never, 1=always, n=after n-1 steps)
+const QSteps = [400]		                    # How often to compute Q, for each N (0 = never, 1=always, n=after n-1 steps)
 const MeasureEvery = 10 .* NN
 
 """PARALLEL TEMPERING SETTINGS"""

@@ -6,16 +6,18 @@ include(PROJECT_ROOT * "/../src/setup/graphic_setup.jl")
 include(PROJECT_ROOT * "/../src/modules/plots.jl")
 include(PROJECT_ROOT * "/../src/modules/processing.jl")
 using UnicodePlots
+using DelimitedFiles
 
 const NSweepsTherm = Int(1e3)
-const NSweeps = Int(1e5 / 400)                    # number of updates of the whole lattice
+const NSweeps = Int(1e3)                    # number of updates of the whole lattice
 const Δ = 0.5
-const sequential = false
+const sequential = false # (Metropolis)
 const NN = [400]                            # number of lattice points
 const SimBeta = 2.0
-const εε_over_ηη = [0.2, 1.0, 5.0]#, 0.5, 1.0, 2.0, 10.0]     # tolerance of tailor method, in units of η
-const MeasureQEvery = 10
+const εε_over_ηη = [1.0]     # tolerance of tailor method, in units of η
+const MeasureQEvery = 1
 const TailorEvery = 10
+const FilePathOut = PROJECT_ROOT * "/tailor_tolerance/NN=$(NN)_SimBeta=$SimBeta.txt"
 
 function main()
 
@@ -47,7 +49,17 @@ function main()
             LL = fill(0, NSweeps*N) # lengths
             QQ = fill(0, Int(ceil(N*NSweeps/MeasureQEvery)))
 
-            for i in 1:NSweeps
+            if FilePathOut!=""
+                open(FilePathOut, "a") do io
+                    println("Opening file...")
+                    write(io, "# NSweeps = $NSweeps")
+                    write(io, "# N, SimBeta, NSweeps, ε_over_η, TailorEvery $(now())")
+                end
+            end
+
+            println("Performing $(round(NSweeps,sigdigits=3)) sweeps of the lattice... ")
+
+            @time for i in 1:NSweeps
 
                 # Sweep over lattice using Metropolis
                 for j in 1:N
@@ -93,7 +105,7 @@ function main()
             """)
 
             # Calculate Q
-            kk = 1:50:1000
+            kk = 1:500:10000
             EQ2_Blocks = []
             for k in kk
                 QQ = QQ[1:MeasureCount]
@@ -122,14 +134,18 @@ function main()
 
             Q, EQ, Q2, EQ2 = BlockQ(QQ, SelectedK)
             println("""
-            For ε/η = $Fraction, k = $SelectedK:
+            For ε/η = $Fraction, k = $SelectedK, TailorEvery = $TailorEvery:
                 FoundRatio = $(round(FoundRatio, sigdigits=3)),
                 AccRatio = $(round(AccRatio, sigdigits=3)),
                 Average Q = $Q ± $EQ,
                 Average Q² = $Q2 ± $EQ2
             """)
+
+            FilePathOut!="" && open(FilePathOut, "a") do io
+                writedlm(io, "$N; $Fraction")
+            end
         end
     end
 end
 
-@time main()
+main()
