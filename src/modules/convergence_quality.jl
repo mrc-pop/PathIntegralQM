@@ -111,6 +111,105 @@ function RunConvergenceSimulations(
 	return MetropolisQMatrix, MetropolisElapsedTime, HeatbathQMatrix, HeatbathElapsedTime
 end
 
+# ------------------------------------ Bias ------------------------------------
+
+function RunBiasedSequentialSimulations(
+	N::Int64,
+	NSweepsTherm::Int64,
+	NSweeps::Int64,
+	SimBetas::Vector{Float64},
+	QStep::Int64,
+	SequentialRatio::Int64;
+	UserDelta=Δ
+)
+
+	Sequential=true
+
+	MetropolisQMatrix = zeros(Int64, floor(Int64, NSweeps*N/QStep), length(SimBetas))
+	MetropolisElapsedTime = 0
+
+	HeatbathQMatrix = zeros(Int64, floor(Int64, NSweeps*N/QStep), length(SimBetas))
+	HeatbathElapsedTime = 0
+
+	for Heatbath in [false, true]
+
+		if !Heatbath
+			@info "Starting biased Metropolis sequential simulation..." SequentialRatio
+		elseif Heatbath
+			@info "Starting biased Heatbath sequential simulation..." SequentialRatio
+		end
+
+		QMatrix = zeros(Int64, floor(Int64, NSweeps*N/(QStep)), length(SimBetas))
+
+		if !Heatbath
+			QMatrix = MetropolisQMatrix
+		elseif Heatbath
+			QMatrix = HeatbathQMatrix
+		end
+
+		Scheme = Heatbath ? "Heatbath" : "Metropolis"
+
+		# Run simulations
+		for	(sb,SimBeta) in enumerate(SimBetas)
+
+			QCounter = 1
+			Config = SetLattice(SimBeta, N)	# Initalize path
+
+
+			# Thermalization
+			println("\nPerforming $NSweepsTherm " * Scheme * " sweeps for thermalization...")
+			@time for i in 1:NSweepsTherm
+			    CurrentSweepSteps = N*(i-1)
+			    for j in 1:N
+			        # Choose site
+		            Site = mod1(CurrentSweepSteps + j, N)
+
+			        # Perform update
+			        if !Heatbath
+			        	MetropolisUpdate!(Config, Site; Δ=UserDelta)
+			        elseif Heatbath
+			        	HeatBathUpdate!(Config, Site)
+			        end
+			    end
+			end
+
+			# Local update sweeps
+			println("\nPerforming $NSweeps "* Scheme * " sweeps of the whole lattice...")
+
+			# Main run
+			@time for i in 1:NSweeps
+				CurrentSweepSteps = N*(i-1)
+				for j in 1:N
+					# Choose site
+				    Site = mod1(CurrentSweepSteps + SequentialRatio*j, N)
+					    						    
+					# Perform update
+			        if !Heatbath
+			        	MetropolisUpdate!(Config, Site; Δ=UserDelta)
+			        elseif Heatbath
+			        	HeatBathUpdate!(Config, Site)
+			        end
+			 		# Measure Q
+					if QStep !== 0 && mod(CurrentSweepSteps + j, QStep) == 0
+					    QMatrix[QCounter,sb] = CalculateQ(Config)
+					    QCounter += 1
+					end
+				end
+			end
+		end
+		
+		if !Heatbath
+			MetropolisQMatrix = QMatrix
+		elseif Heatbath
+			HeatbathQMatrix = QMatrix
+		end
+		
+	end
+
+	return MetropolisQMatrix, HeatbathQMatrix
+end
+
+
 # ----------------------------- In-depth analysis ------------------------------
 
 function RunDeepAnalysis(

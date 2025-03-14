@@ -443,6 +443,68 @@ function PlotQCorrelators(
 
 end
 
+function PlotBiasedQCorrelatorsCompared(
+	DirPathIn::String,	# up to /convergence/sequential/biased
+	SimBeta::Float64,
+	N::Int64,
+	NSweeps::Int64,
+	SequentialRatios::Vector{Int64};
+	kMax = 100,
+	Skip = 5
+)
+
+	DirPathOut = DirPathIn *
+		"/../../convergence_plots/QCorrelators_biased"
+	mkpath(DirPathOut)
+	
+	DirPathIn *= "/N=$N"
+
+	NSweepsString = @sprintf "%.1e" NSweeps
+
+	Schemes = ["Metropolis", "Heatbath"]
+	Labels = ["MS", "MR", "HS", "HR"]
+
+	for (s,Scheme) in enumerate(Schemes)
+	
+		p = plot(
+			xlabel=L"$k$",
+			ylabel=L"$C_Q(k)$",
+			title=L"$Q$ correlator (%$Scheme, $N=%$N, \tilde\beta=%$SimBeta$)",
+			legend=:topright
+		)
+	
+		for (sr,SequentialRatio) in enumerate(SequentialRatios)
+			FilePathIn = DirPathIn * 
+				"/" * Scheme *
+				"_SequentialRatio=$(SequentialRatio)" *
+				"_NSweeps=" * NSweepsString *
+				"_QCorrelators.txt"
+
+			@info "Loading data" Scheme SequentialRatio N NSweeps
+			Data = readdlm(FilePathIn, ';', comments=true)
+			SimBetas = Data[1,:]
+			CMatrix = Data[2:end,:]
+
+			Index = findall(x->x==SimBeta, SimBetas)
+			CC = CMatrix[:, Index]
+			kk = 0:Skip:kMax
+
+			plot!(p, kk, CC,
+				label=L"$s_r=%$(SequentialRatio)$",
+				markershape=:circle,
+				markersize=1.5,
+				linewidth=0.5,
+				color=MyColors[sr])
+		end
+		
+		FilePathOut = DirPathOut *
+			"/" * Scheme *
+			"_N=$(N)_NSweeps=" * NSweepsString	* "_SimBeta=$SimBeta.pdf"
+		Plots.savefig(p, FilePathOut)
+		
+	end
+end
+
 # ---------------------------------- Q blocks ----------------------------------
 
 function ParseArray(
