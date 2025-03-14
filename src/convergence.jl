@@ -149,7 +149,8 @@ function main()
 					CSimBetas,
 					Seq,
 					AdditionalHeaders;
-					kMax=500
+					kMax=50, # maximum number of k points
+                    Skip=1
 				)
 
 				println("In-depth analysis completed.")
@@ -190,7 +191,7 @@ function main()
 
 	DirPathIn = PROJECT_ROOT * "/../convergence"
 	pgfplotsx()
-	PlotQConvergenceFigures(DirPathIn, CNN, CSimBetas; PlotExtendedData=!DeepAnalysis)
+	PlotQConvergenceFigures(DirPathIn, CNN, CSimBetas; PlotExtendedData=!DeepAnalysis, QSteps)
 
 end
 

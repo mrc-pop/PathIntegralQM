@@ -17,10 +17,8 @@ Code to find the optimal block length.
 include(PROJECT_ROOT * "/../src/setup/simulations_setup.jl")
 
 # Define custom block sizes variable
-const BlockSizes = vcat(1, 5:5:20, 40:20:100, 150:50:300, 400:100:1000)
-const NNBlock = [100,125,150,175,200,300,400]
-# [1, 4, 8, 16, 32, 64, 96, 128, 256, 512, 600, 700, 800, 900, 1024]
-# [2^k for k in 0:11]
+const BlockSizes = 1:2000:80000 # vcat(1, 5:5:20, 40:20:100, 150:50:300, 400:100:1000)
+const NNBlock = [400]
 
 function main()
 

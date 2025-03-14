@@ -1,4 +1,5 @@
 simulations/**/*.txt
 test/test_parallel_tempering_data/NR=**
+test/parallel_tempering/data/NR=**
 convergence/random/N=**
 convergence/sequential/N=**

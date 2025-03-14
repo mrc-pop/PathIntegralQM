@@ -74,7 +74,3 @@ function GetBootstrapErrors(Data::Matrix{Float64}, R::Int64)
 
 	return BootstrapErrors
 end
-
-function Jackknife()
-    # TODO
-end

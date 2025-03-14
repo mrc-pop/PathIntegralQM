@@ -9,7 +9,7 @@ include(PROJECT_ROOT * "/../src/setup/graphic_setup.jl")
 include(PROJECT_ROOT * "/../src/setup/simulations_setup.jl")
 include(PROJECT_ROOT * "/../src/modules/processing.jl")
 
-# const LengthsBlockSizes = Dict( # see txt file
+# const LengthsBlockSizes = Dict( # see txt file (no tailor)
 #     # N => k
 #     75 => 10,
 #     100 => 25,
@@ -21,7 +21,7 @@ include(PROJECT_ROOT * "/../src/modules/processing.jl")
 #     400 => 1000
 # )
 
-const LengthsBlockSizes = Dict( # see txt file
+const LengthsBlockSizes = Dict( # see txt file (tailor)
     # N => k
     75 => 50,
     100 => 50,
@@ -33,21 +33,8 @@ const LengthsBlockSizes = Dict( # see txt file
     400 => 100
 )
 
-# const LengthsBlockSizes = Dict(
-#     # N => k
-#     50 => 1000,
-#     75 => 1000,
-#     100 => 1000,
-#     125 => 1000,
-#     150 => 1000,
-#     175 => 1000,
-#     200 => 1000,
-#     300 => 1000,
-#     400 => 10000
-# )
 
-
-const Scan = true          # Scan all available N # TODO remove
+const Scan = false          # Scan all available N # TODO remove
 const MakeHist = false      # plot Histogram
 
 function main()

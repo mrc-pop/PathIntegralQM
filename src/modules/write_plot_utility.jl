@@ -111,9 +111,9 @@ function PlotQVarianceSimBetaTMP(
 end
 
 function main()
-	
+
 	DirPathIn = PROJECT_ROOT * "/../convergence"
-	
+
 	Waiting = true
 	println("This program allows for two modes and two submodes: write and plot (w/p), deep and extended (d/e).
 - Write (w): run computations on previously computed Qs, write on file;
@@ -141,7 +141,7 @@ The four options are we, pe, wd, pd")
 			for N in ConvergenceNNExtended
 				PlotQVarianceSimBetaTMP(DirPathIn, N, NSweeps)
 			end
-			
+
 		elseif UserMode == "wd"
 			Waiting = false
 			@info "Writing deep data" ConvergenceNNDeep ConvergenceSimBetasDeep
@@ -151,9 +151,9 @@ The four options are we, pe, wd, pd")
 		elseif UserMode == "pd"
 			Waiting = false
 			@info "Plotting deep data" ConvergenceNNDeep ConvergenceSimBetasDeep
-			
+
 			pgfplotsx()
-			PlotQConvergenceFigures(DirPathIn, ConvergenceNNDeep, ConvergenceSimBetasDeep; PlotExtendedData=false)
+			PlotQConvergenceFigures(DirPathIn, ConvergenceNNDeep, ConvergenceSimBetasDeep; PlotExtendedData=false, QSteps)
 
 		else
 			Waiting = true

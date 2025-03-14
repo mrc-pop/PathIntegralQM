@@ -387,7 +387,8 @@ function PlotQCorrelators(
 	SimBeta::Float64,
 	N::Int64,
 	NSweeps::Int64;
-	Skip=4
+	Skip=1,
+    QStep=1
 )
 
 	NSweepsString = @sprintf "%.1e" NSweeps
@@ -397,10 +398,12 @@ function PlotQCorrelators(
 	Labels = ["MS", "MR", "HS", "HR"]
 
 	p = plot(
-		xlabel=L"$k/n_Q$",
+		xlabel=L"$k$",
 		ylabel=L"$C_Q(k)$",
 		title=L"$Q$ correlator ($N=%$N, \tilde\beta=%$SimBeta$)",
-		legend=:topright
+		legend=:topright,
+        background_color = :transparent,
+        foreground_color = :black
 	)
 
 	for (s,Scheme) in enumerate(Schemes)
@@ -419,9 +422,11 @@ function PlotQCorrelators(
 
 			Index = findall(x->x==SimBeta, SimBetas)
 			CC = CMatrix[:, Index]
-			kk = 1:Skip:(size(Data,1)-1)
+			kk = QStep .* collect(0:Skip:(size(Data,1)-2))
 
 			plot!(p, kk,  CC,
+                #yscale=:log10,
+                #yticks=[0.001, 0.01, 0.1, 1.0],
 				label=Labels[2*(s-1)+m],
 				markershape=:circle,
 				markersize=1.5,
@@ -608,15 +613,15 @@ end
 
 # ------------------------- Convergence plots handler --------------------------
 
-function PlotQConvergenceFigures(DirPathIn, CNN, CSimBetas; PlotExtendedData=false)
+function PlotQConvergenceFigures(DirPathIn, CNN, CSimBetas; PlotExtendedData=false, QSteps=[])
 
-	for N in CNN
+	for (n,N) in enumerate(CNN)
 
 		println("Plotting N=$N data")
 		if !PlotExtendedData
 			for SimBeta in CSimBetas
-				PlotQHistogramsCompared(DirPathIn, SimBeta, N, NSweeps)
-				PlotQCorrelators(DirPathIn, SimBeta, N, NSweeps)
+				#PlotQHistogramsCompared(DirPathIn, SimBeta, N, NSweeps)
+				PlotQCorrelators(DirPathIn, SimBeta, N, NSweeps; QStep = QSteps[n], Skip=1)
 			end
 		elseif PlotExtendedData
 			PlotQVarianceSimBeta(DirPathIn, N, NSweeps)

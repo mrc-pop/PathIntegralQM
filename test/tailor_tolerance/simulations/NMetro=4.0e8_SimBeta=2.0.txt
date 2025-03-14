@@ -1,0 +1,11 @@
+# SimBeta=2.0, sequential=false [calculated 2025-03-13T16:23:36.446]
+# N; NMetro; ε_over_η; TailorEvery; ⟨Q⟩; e⟨Q⟩; ⟨Q²⟩; e⟨Q²⟩; Δt_Metro [s]; Δt_Blocking [s]
+# SimBeta=2.0, sequential=false [calculated 2025-03-13T17:02:46.449]
+# N; NSweeps; ε_over_η; k (BlockSize); TailorEvery; MeasureQEvery; ⟨Q⟩; e⟨Q⟩; ⟨Q²⟩; e⟨Q²⟩; Δt_Metro [s]; Δt_Blocking [s]
+400; 1000000; 1.0; 1001; 20; 5; -0.000224275; 0.0005167135977466231; 2.00056895; 0.0014525509757313522; 144.271476917; 57.007857958
+# SimBeta=2.0, sequential=false [calculated 2025-03-13T17:08:25.689]
+# N; NSweeps; ε_over_η; k (BlockSize); TailorEvery; MeasureQEvery; ⟨Q⟩; e⟨Q⟩; ⟨Q²⟩; e⟨Q²⟩; Δt_Metro [s]; Δt_Blocking [s]
+400; 1000000; 1.0; 1001; 50; 20; -0.00085705; 0.0008209057374298419; 1.99872805; 0.0023521445614567114; 52.821431416; 10.913541459
+# SimBeta=2.0, sequential=false [calculated 2025-03-13T17:11:38.146]
+# N; NSweeps; ε_over_η; k (BlockSize); TailorEvery; MeasureQEvery; ⟨Q⟩; e⟨Q⟩; ⟨Q²⟩; e⟨Q²⟩; Δt_Metro [s]; Δt_Blocking [s]
+400; 1000000; 1.0; 1001; 50; 30; 0.0020097744360902258; 0.0008236829670584649; 1.9955624060150376; 0.002369703787369219; 43.183132917; 6.083092875

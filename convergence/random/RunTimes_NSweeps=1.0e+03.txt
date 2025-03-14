@@ -1,2 +1,2 @@
 # N; Metropolis-Seq=false; Heatbath-Seq=false
-400.0; 0.079452086; 0.05621896
+50.0; 0.221999084; 0.111236917
